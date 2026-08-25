@@ -1,0 +1,26 @@
+# Python & Virtual Environments
+.venv/
+backend/.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Database & Environment
+*.db
+backend/literacy.db
+literacy.db
+.env
+backend/.env
+
+# Node.js & Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.nx/
+.npm
+
+# IDE & OS Files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
