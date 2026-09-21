@@ -59,18 +59,17 @@ def startup_event():
 # Configure CORS for frontend access
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:3000",
-        "http://localhost:8000",
-        "http://127.0.0.1:8000",
-        "*"
-    ],
+    allow_origin_regex=r"https?://.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/health")
+@app.get("/api/health")
+def health_check():
+    """Health check endpoint for cloud hosting platforms (Render, Vercel, Railway)."""
+    return {"status": "ok", "service": "NeoLearner Backend API"}
 
 # Register Routers
 app.include_router(auth_router.router)
