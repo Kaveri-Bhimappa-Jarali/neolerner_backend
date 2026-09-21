@@ -7,6 +7,7 @@ import schemas, models, database, dependencies
 router = APIRouter(prefix="/api/courses", tags=["courses"])
 
 # --- Courses ---
+@router.get("", response_model=List[schemas.CourseResponse])
 @router.get("/", response_model=List[schemas.CourseResponse])
 def get_courses(
     language_id: Optional[UUID] = None,
