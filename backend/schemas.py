@@ -945,3 +945,144 @@ class AdminLearnerDetailResponse(BaseModel):
     strengths: List[str]
 
 
+# ==========================================
+# --- Admin CRUD Payload Schemas ---
+# ==========================================
+class AdminLearnerCreate(BaseModel):
+    email: EmailStr
+    password: str
+    full_name: str
+    age: Optional[int] = 20
+    is_admin: bool = False
+    proficiency_level: Optional[ProficiencyLevel] = ProficiencyLevel.Beginner
+    cefr_level: Optional[str] = "A1"
+    xp: Optional[int] = 0
+    gems: Optional[int] = 500
+    hearts: Optional[int] = 5
+    streak: Optional[int] = 0
+
+class AdminLearnerUpdate(BaseModel):
+    full_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    password: Optional[str] = None
+    age: Optional[int] = None
+    is_admin: Optional[bool] = None
+    proficiency_level: Optional[ProficiencyLevel] = None
+    cefr_level: Optional[str] = None
+    xp: Optional[int] = None
+    gems: Optional[int] = None
+    hearts: Optional[int] = None
+    streak: Optional[int] = None
+
+class AdminCourseCreate(BaseModel):
+    title: str
+    description: Optional[str] = ""
+    language_id: UUID
+    level: CourseLevel = CourseLevel.Beginner
+    cefr_level: Optional[str] = "A1"
+    is_published: bool = True
+
+class AdminCourseUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    language_id: Optional[UUID] = None
+    level: Optional[CourseLevel] = None
+    cefr_level: Optional[str] = None
+    is_published: Optional[bool] = None
+
+class AdminTopicCreate(BaseModel):
+    course_id: UUID
+    title: str
+    description: Optional[str] = ""
+    order: int = 1
+    cefr_level: Optional[str] = "A1"
+
+class AdminTopicUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    order: Optional[int] = None
+    cefr_level: Optional[str] = None
+
+class AdminLessonCreate(BaseModel):
+    topic_id: UUID
+    title: str
+    content: Optional[str] = ""
+    order: int = 1
+    duration_minutes: int = 10
+
+class AdminLessonUpdate(BaseModel):
+    title: Optional[str] = None
+    content: Optional[str] = None
+    order: Optional[int] = None
+    duration_minutes: Optional[int] = None
+
+class AdminAchievementCreate(BaseModel):
+    code: str
+    name: str
+    description: str
+    icon: str = "🏆"
+    category: str = "general"
+    threshold: int = 1
+    xp_reward: int = 50
+    gem_reward: int = 20
+
+class AdminAchievementUpdate(BaseModel):
+    code: Optional[str] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    icon: Optional[str] = None
+    category: Optional[str] = None
+    threshold: Optional[int] = None
+    xp_reward: Optional[int] = None
+    gem_reward: Optional[int] = None
+
+class AdminStoryCreate(BaseModel):
+    title: str
+    language_code: str = "kn"
+    cefr_level: str = "A1"
+    difficulty: str = "Beginner"
+    xp_reward: int = 30
+    story_json: Optional[str] = "{}"
+
+class AdminStoryUpdate(BaseModel):
+    title: Optional[str] = None
+    language_code: Optional[str] = None
+    cefr_level: Optional[str] = None
+    difficulty: Optional[str] = None
+    xp_reward: Optional[int] = None
+    story_json: Optional[str] = None
+
+class AdminAdventureCreate(BaseModel):
+    title: str
+    scenario_code: str
+    target_language: str = "Kannada"
+    difficulty: str = "Beginner"
+    system_prompt: str = ""
+    starting_message: str = ""
+
+class AdminAdventureUpdate(BaseModel):
+    title: Optional[str] = None
+    scenario_code: Optional[str] = None
+    target_language: Optional[str] = None
+    difficulty: Optional[str] = None
+    system_prompt: Optional[str] = None
+    starting_message: Optional[str] = None
+
+class AdminVocabularyCreate(BaseModel):
+    word: str
+    translation: str
+    language_code: str = "kn"
+    pos: Optional[str] = "noun"
+    cefr_level: Optional[str] = "A1"
+    example_sentence: Optional[str] = ""
+
+class AdminVocabularyUpdate(BaseModel):
+    word: Optional[str] = None
+    translation: Optional[str] = None
+    language_code: Optional[str] = None
+    pos: Optional[str] = None
+    cefr_level: Optional[str] = None
+    example_sentence: Optional[str] = None
+
+
+
