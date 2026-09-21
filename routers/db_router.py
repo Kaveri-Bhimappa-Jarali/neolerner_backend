@@ -158,3 +158,150 @@ def get_table_data(
         "columns": columns,
         "rows": serialized_rows
     }
+
+
+def parse_field_value(col, value):
+    if value is None:
+        return None
+    col_type = str(col.type).upper()
+    if "UUID" in col_type:
+        return uuid.UUID(str(value)) if not isinstance(value, uuid.UUID) else value
+    elif "INT" in col_type:
+        return int(value)
+    elif "FLOAT" in col_type or "NUMERIC" in col_type:
+        return float(value)
+    elif "BOOL" in col_type:
+        if isinstance(value, str):
+            return value.lower() in ("true", "1", "yes")
+        return bool(value)
+    elif "DATETIME" in col_type or "TIMESTAMP" in col_type:
+        if isinstance(value, str):
+            from datetime import datetime
+            try:
+                return datetime.fromisoformat(value.replace('Z', '+00:00'))
+            except Exception:
+                return datetime.utcnow()
+        return value
+    elif hasattr(col.type, "enum_class") and col.type.enum_class:
+        try:
+            return col.type.enum_class(value)
+        except Exception:
+            return value
+    return str(value)
+
+
+@router.post("/tables/{table_name}")
+@router.post("/tables/{table_name}/")
+def create_table_record(
+    table_name: str,
+    payload: Dict[str, Any],
+    db: Session = Depends(database.get_db)
+):
+    """Creates a new record in any target database table dynamically."""
+    if table_name not in TABLE_MODELS:
+        raise HTTPException(status_code=404, detail=f"Table '{table_name}' not found.")
+    
+    model_cls = TABLE_MODELS[table_name]
+    new_instance = model_cls()
+    
+    # Handle password hashing if raw password is supplied
+    if "password" in payload and hasattr(model_cls, "hashed_password"):
+        import auth
+        new_instance.hashed_password = auth.get_password_hash(payload.pop("password"))
+
+    for col in model_cls.__table__.columns:
+        if col.name in payload and col.name != "id":
+            val = payload[col.name]
+            try:
+                parsed_val = parse_field_value(col, val)
+                setattr(new_instance, col.name, parsed_val)
+            except Exception as err:
+                raise HTTPException(status_code=400, detail=f"Invalid value for field '{col.name}': {str(err)}")
+                
+    try:
+        db.add(new_instance)
+        db.commit()
+        db.refresh(new_instance)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Database insertion failed: {str(e)}")
+
+    return {"message": f"Successfully created record in '{table_name}'", "id": str(getattr(new_instance, 'id', ''))}
+
+
+@router.put("/tables/{table_name}/{record_id}")
+@router.put("/tables/{table_name}/{record_id}/")
+def update_table_record(
+    table_name: str,
+    record_id: str,
+    payload: Dict[str, Any],
+    db: Session = Depends(database.get_db)
+):
+    """Updates an existing record in any target database table by primary key."""
+    if table_name not in TABLE_MODELS:
+        raise HTTPException(status_code=404, detail=f"Table '{table_name}' not found.")
+        
+    model_cls = TABLE_MODELS[table_name]
+    try:
+        rec_uuid = uuid.UUID(record_id)
+        instance = db.query(model_cls).filter(model_cls.id == rec_uuid).first()
+    except Exception:
+        instance = db.query(model_cls).filter(model_cls.id == record_id).first()
+
+    if not instance:
+        raise HTTPException(status_code=404, detail=f"Record '{record_id}' not found in '{table_name}'.")
+
+    if "password" in payload and payload["password"] and hasattr(model_cls, "hashed_password"):
+        import auth
+        instance.hashed_password = auth.get_password_hash(payload.pop("password"))
+
+    for col in model_cls.__table__.columns:
+        if col.name in payload and col.name != "id":
+            val = payload[col.name]
+            if val is not None:
+                try:
+                    parsed_val = parse_field_value(col, val)
+                    setattr(instance, col.name, parsed_val)
+                except Exception as err:
+                    raise HTTPException(status_code=400, detail=f"Invalid value for field '{col.name}': {str(err)}")
+
+    try:
+        db.commit()
+        db.refresh(instance)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Database update failed: {str(e)}")
+
+    return {"message": f"Successfully updated record in '{table_name}'", "id": record_id}
+
+
+@router.delete("/tables/{table_name}/{record_id}")
+@router.delete("/tables/{table_name}/{record_id}/")
+def delete_table_record(
+    table_name: str,
+    record_id: str,
+    db: Session = Depends(database.get_db)
+):
+    """Deletes a record from any target database table by primary key."""
+    if table_name not in TABLE_MODELS:
+        raise HTTPException(status_code=404, detail=f"Table '{table_name}' not found.")
+
+    model_cls = TABLE_MODELS[table_name]
+    try:
+        rec_uuid = uuid.UUID(record_id)
+        instance = db.query(model_cls).filter(model_cls.id == rec_uuid).first()
+    except Exception:
+        instance = db.query(model_cls).filter(model_cls.id == record_id).first()
+
+    if not instance:
+        raise HTTPException(status_code=404, detail=f"Record '{record_id}' not found in '{table_name}'.")
+
+    try:
+        db.delete(instance)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Database deletion failed: {str(e)}")
+
+    return {"message": f"Successfully deleted record '{record_id}' from '{table_name}'"}
+

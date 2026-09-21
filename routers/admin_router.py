@@ -231,16 +231,39 @@ def get_admin_courses_content(
     courses = db.query(models.Course).all()
     res = []
     for c in courses:
+        topics_list = []
+        for t in c.topics:
+            lessons_list = []
+            for l in t.lessons:
+                lessons_list.append({
+                    "id": str(l.id),
+                    "title": l.title,
+                    "content": l.content,
+                    "order": l.order,
+                    "duration_minutes": l.duration_minutes
+                })
+            topics_list.append({
+                "id": str(t.id),
+                "title": t.title,
+                "description": t.description,
+                "order": t.order,
+                "cefr_level": t.cefr_level,
+                "lessons": lessons_list
+            })
         res.append({
             "id": str(c.id),
             "title": c.title,
+            "description": c.description,
+            "language_id": str(c.language_id),
             "language": c.language.name if c.language else "Unknown",
             "level": c.level.value if c.level else "Beginner",
             "cefr_level": c.cefr_level or "A1",
             "is_published": c.is_published,
-            "topics_count": len(c.topics)
+            "topics_count": len(c.topics),
+            "topics": topics_list
         })
     return res
+
 
 
 # ==========================================
@@ -303,6 +326,508 @@ def get_admin_achievements_list(
             "unlocked_by_learners_count": unlocked_count
         })
     return res
+
+
+# ==========================================
+# 6b. ACHIEVEMENTS CRUD
+# ==========================================
+@router.post("/achievements")
+def create_admin_achievement(
+    payload: schemas.AdminAchievementCreate,
+    current_admin: models.Learner = Depends(dependencies.get_current_admin),
+    db: Session = Depends(database.get_db)
+):
+    ach = models.AchievementDefinition(
+        code=payload.code,
+        name=payload.name,
+        description=payload.description,
+        icon=payload.icon,
+        category=payload.category,
+        threshold=payload.threshold,
+        xp_reward=payload.xp_reward,
+        gem_reward=payload.gem_reward
+    )
+    db.add(ach)
+    db.commit()
+    db.refresh(ach)
+    return {"message": "Achievement created successfully", "id": str(ach.id)}
+
+@router.put("/achievements/{achievement_id}")
+def update_admin_achievement(
+    achievement_id: uuid.UUID,
+    payload: schemas.AdminAchievementUpdate,
+    current_admin: models.Learner = Depends(dependencies.get_current_admin),
+    db: Session = Depends(database.get_db)
+):
+    ach = db.query(models.AchievementDefinition).filter(models.AchievementDefinition.id == achievement_id).first()
+    if not ach:
+        raise HTTPException(status_code=404, detail="Achievement not found")
+    
+    for field, value in payload.dict(exclude_unset=True).items():
+        if value is not None:
+            setattr(ach, field, value)
+            
+    db.commit()
+    return {"message": "Achievement updated successfully"}
+
+@router.delete("/achievements/{achievement_id}")
+def delete_admin_achievement(
+    achievement_id: uuid.UUID,
+    current_admin: models.Learner = Depends(dependencies.get_current_admin),
+    db: Session = Depends(database.get_db)
+):
+    ach = db.query(models.AchievementDefinition).filter(models.AchievementDefinition.id == achievement_id).first()
+    if not ach:
+        raise HTTPException(status_code=404, detail="Achievement not found")
+    
+    db.delete(ach)
+    db.commit()
+    return {"message": "Achievement deleted successfully"}
+
+
+# ==========================================
+# 2b. LEARNER CRUD
+# ==========================================
+@router.post("/learners")
+def create_admin_learner(
+    payload: schemas.AdminLearnerCreate,
+    current_admin: models.Learner = Depends(dependencies.get_current_admin),
+    db: Session = Depends(database.get_db)
+):
+    import auth
+    existing = db.query(models.Learner).filter(models.Learner.email == payload.email).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Learner with this email already exists")
+
+    hashed_pw = auth.get_password_hash(payload.password)
+    learner = models.Learner(
+        email=payload.email,
+        hashed_password=hashed_pw,
+        full_name=payload.full_name,
+        age=payload.age,
+        is_admin=payload.is_admin,
+        proficiency_level=payload.proficiency_level,
+        cefr_level=payload.cefr_level,
+        xp=payload.xp or 0,
+        gems=payload.gems or 500,
+        hearts=payload.hearts or 5,
+        streak=payload.streak or 0
+    )
+    db.add(learner)
+    db.commit()
+    db.refresh(learner)
+    return {"message": "Learner created successfully", "id": str(learner.id)}
+
+@router.put("/learners/{learner_id}")
+def update_admin_learner(
+    learner_id: uuid.UUID,
+    payload: schemas.AdminLearnerUpdate,
+    current_admin: models.Learner = Depends(dependencies.get_current_admin),
+    db: Session = Depends(database.get_db)
+):
+    import auth
+    learner = db.query(models.Learner).filter(models.Learner.id == learner_id).first()
+    if not learner:
+        raise HTTPException(status_code=404, detail="Learner not found")
+
+    data = payload.dict(exclude_unset=True)
+    if "password" in data and data["password"]:
+        learner.hashed_password = auth.get_password_hash(data.pop("password"))
+        
+    for field, value in data.items():
+        if value is not None:
+            setattr(learner, field, value)
+
+    db.commit()
+    return {"message": "Learner updated successfully"}
+
+@router.delete("/learners/{learner_id}")
+def delete_admin_learner(
+    learner_id: uuid.UUID,
+    current_admin: models.Learner = Depends(dependencies.get_current_admin),
+    db: Session = Depends(database.get_db)
+):
+    learner = db.query(models.Learner).filter(models.Learner.id == learner_id).first()
+    if not learner:
+        raise HTTPException(status_code=404, detail="Learner not found")
+
+    db.delete(learner)
+    db.commit()
+    return {"message": "Learner deleted successfully"}
+
+
+# ==========================================
+# 4b. CONTENT & CURRICULUM CRUD (Courses, Topics, Lessons)
+# ==========================================
+@router.post("/content/courses")
+def create_admin_course(
+    payload: schemas.AdminCourseCreate,
+    current_admin: models.Learner = Depends(dependencies.get_current_admin),
+    db: Session = Depends(database.get_db)
+):
+    course = models.Course(
+        title=payload.title,
+        description=payload.description,
+        language_id=payload.language_id,
+        level=payload.level,
+        cefr_level=payload.cefr_level,
+        is_published=payload.is_published
+    )
+    db.add(course)
+    db.commit()
+    db.refresh(course)
+    return {"message": "Course created successfully", "id": str(course.id)}
+
+@router.put("/content/courses/{course_id}")
+def update_admin_course(
+    course_id: uuid.UUID,
+    payload: schemas.AdminCourseUpdate,
+    current_admin: models.Learner = Depends(dependencies.get_current_admin),
+    db: Session = Depends(database.get_db)
+):
+    course = db.query(models.Course).filter(models.Course.id == course_id).first()
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+
+    for field, value in payload.dict(exclude_unset=True).items():
+        if value is not None:
+            setattr(course, field, value)
+
+    db.commit()
+    return {"message": "Course updated successfully"}
+
+@router.delete("/content/courses/{course_id}")
+def delete_admin_course(
+    course_id: uuid.UUID,
+    current_admin: models.Learner = Depends(dependencies.get_current_admin),
+    db: Session = Depends(database.get_db)
+):
+    course = db.query(models.Course).filter(models.Course.id == course_id).first()
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+
+    db.delete(course)
+    db.commit()
+    return {"message": "Course deleted successfully"}
+
+@router.post("/content/topics")
+def create_admin_topic(
+    payload: schemas.AdminTopicCreate,
+    current_admin: models.Learner = Depends(dependencies.get_current_admin),
+    db: Session = Depends(database.get_db)
+):
+    topic = models.Topic(
+        course_id=payload.course_id,
+        title=payload.title,
+        description=payload.description,
+        order=payload.order,
+        cefr_level=payload.cefr_level
+    )
+    db.add(topic)
+    db.commit()
+    db.refresh(topic)
+    return {"message": "Topic created successfully", "id": str(topic.id)}
+
+@router.put("/content/topics/{topic_id}")
+def update_admin_topic(
+    topic_id: uuid.UUID,
+    payload: schemas.AdminTopicUpdate,
+    current_admin: models.Learner = Depends(dependencies.get_current_admin),
+    db: Session = Depends(database.get_db)
+):
+    topic = db.query(models.Topic).filter(models.Topic.id == topic_id).first()
+    if not topic:
+        raise HTTPException(status_code=404, detail="Topic not found")
+
+    for field, value in payload.dict(exclude_unset=True).items():
+        if value is not None:
+            setattr(topic, field, value)
+
+    db.commit()
+    return {"message": "Topic updated successfully"}
+
+@router.delete("/content/topics/{topic_id}")
+def delete_admin_topic(
+    topic_id: uuid.UUID,
+    current_admin: models.Learner = Depends(dependencies.get_current_admin),
+    db: Session = Depends(database.get_db)
+):
+    topic = db.query(models.Topic).filter(models.Topic.id == topic_id).first()
+    if not topic:
+        raise HTTPException(status_code=404, detail="Topic not found")
+
+    db.delete(topic)
+    db.commit()
+    return {"message": "Topic deleted successfully"}
+
+@router.post("/content/lessons")
+def create_admin_lesson(
+    payload: schemas.AdminLessonCreate,
+    current_admin: models.Learner = Depends(dependencies.get_current_admin),
+    db: Session = Depends(database.get_db)
+):
+    lesson = models.Lesson(
+        topic_id=payload.topic_id,
+        title=payload.title,
+        content=payload.content,
+        order=payload.order,
+        duration_minutes=payload.duration_minutes
+    )
+    db.add(lesson)
+    db.commit()
+    db.refresh(lesson)
+    return {"message": "Lesson created successfully", "id": str(lesson.id)}
+
+@router.put("/content/lessons/{lesson_id}")
+def update_admin_lesson(
+    lesson_id: uuid.UUID,
+    payload: schemas.AdminLessonUpdate,
+    current_admin: models.Learner = Depends(dependencies.get_current_admin),
+    db: Session = Depends(database.get_db)
+):
+    lesson = db.query(models.Lesson).filter(models.Lesson.id == lesson_id).first()
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+
+    for field, value in payload.dict(exclude_unset=True).items():
+        if value is not None:
+            setattr(lesson, field, value)
+
+    db.commit()
+    return {"message": "Lesson updated successfully"}
+
+@router.delete("/content/lessons/{lesson_id}")
+def delete_admin_lesson(
+    lesson_id: uuid.UUID,
+    current_admin: models.Learner = Depends(dependencies.get_current_admin),
+    db: Session = Depends(database.get_db)
+):
+    lesson = db.query(models.Lesson).filter(models.Lesson.id == lesson_id).first()
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+
+    db.delete(lesson)
+    db.commit()
+    return {"message": "Lesson deleted successfully"}
+
+
+# ==========================================
+# 7. STORIES & ADVENTURES CRUD
+# ==========================================
+@router.get("/stories")
+def get_admin_stories(
+    current_admin: models.Learner = Depends(dependencies.get_current_admin),
+    db: Session = Depends(database.get_db)
+):
+    stories = db.query(models.InteractiveStory).all()
+    return [{
+        "id": str(s.id),
+        "title": s.title,
+        "language_code": s.language_code,
+        "cefr_level": s.cefr_level,
+        "difficulty": s.difficulty,
+        "xp_reward": s.xp_reward,
+        "story_json": s.story_json
+    } for s in stories]
+
+@router.post("/stories")
+def create_admin_story(
+    payload: schemas.AdminStoryCreate,
+    current_admin: models.Learner = Depends(dependencies.get_current_admin),
+    db: Session = Depends(database.get_db)
+):
+    story = models.InteractiveStory(
+        title=payload.title,
+        language_code=payload.language_code,
+        cefr_level=payload.cefr_level,
+        difficulty=payload.difficulty,
+        xp_reward=payload.xp_reward,
+        story_json=payload.story_json
+    )
+    db.add(story)
+    db.commit()
+    db.refresh(story)
+    return {"message": "Interactive Story created successfully", "id": str(story.id)}
+
+@router.put("/stories/{story_id}")
+def update_admin_story(
+    story_id: uuid.UUID,
+    payload: schemas.AdminStoryUpdate,
+    current_admin: models.Learner = Depends(dependencies.get_current_admin),
+    db: Session = Depends(database.get_db)
+):
+    story = db.query(models.InteractiveStory).filter(models.InteractiveStory.id == story_id).first()
+    if not story:
+        raise HTTPException(status_code=404, detail="Story not found")
+
+    for field, value in payload.dict(exclude_unset=True).items():
+        if value is not None:
+            setattr(story, field, value)
+
+    db.commit()
+    return {"message": "Story updated successfully"}
+
+@router.delete("/stories/{story_id}")
+def delete_admin_story(
+    story_id: uuid.UUID,
+    current_admin: models.Learner = Depends(dependencies.get_current_admin),
+    db: Session = Depends(database.get_db)
+):
+    story = db.query(models.InteractiveStory).filter(models.InteractiveStory.id == story_id).first()
+    if not story:
+        raise HTTPException(status_code=404, detail="Story not found")
+
+    db.delete(story)
+    db.commit()
+    return {"message": "Story deleted successfully"}
+
+
+@router.get("/adventures")
+def get_admin_adventures(
+    current_admin: models.Learner = Depends(dependencies.get_current_admin),
+    db: Session = Depends(database.get_db)
+):
+    adventures = db.query(models.TextAdventureScenario).all()
+    return [{
+        "id": str(a.id),
+        "title": a.title,
+        "scenario_code": a.scenario_code,
+        "target_language": a.target_language,
+        "difficulty": a.difficulty,
+        "system_prompt": a.system_prompt,
+        "starting_message": a.starting_message
+    } for a in adventures]
+
+@router.post("/adventures")
+def create_admin_adventure(
+    payload: schemas.AdminAdventureCreate,
+    current_admin: models.Learner = Depends(dependencies.get_current_admin),
+    db: Session = Depends(database.get_db)
+):
+    adventure = models.TextAdventureScenario(
+        title=payload.title,
+        scenario_code=payload.scenario_code,
+        target_language=payload.target_language,
+        difficulty=payload.difficulty,
+        system_prompt=payload.system_prompt,
+        starting_message=payload.starting_message
+    )
+    db.add(adventure)
+    db.commit()
+    db.refresh(adventure)
+    return {"message": "Adventure Scenario created successfully", "id": str(adventure.id)}
+
+@router.put("/adventures/{adventure_id}")
+def update_admin_adventure(
+    adventure_id: uuid.UUID,
+    payload: schemas.AdminAdventureUpdate,
+    current_admin: models.Learner = Depends(dependencies.get_current_admin),
+    db: Session = Depends(database.get_db)
+):
+    adv = db.query(models.TextAdventureScenario).filter(models.TextAdventureScenario.id == adventure_id).first()
+    if not adv:
+        raise HTTPException(status_code=404, detail="Adventure scenario not found")
+
+    for field, value in payload.dict(exclude_unset=True).items():
+        if value is not None:
+            setattr(adv, field, value)
+
+    db.commit()
+    return {"message": "Adventure scenario updated successfully"}
+
+@router.delete("/adventures/{adventure_id}")
+def delete_admin_adventure(
+    adventure_id: uuid.UUID,
+    current_admin: models.Learner = Depends(dependencies.get_current_admin),
+    db: Session = Depends(database.get_db)
+):
+    adv = db.query(models.TextAdventureScenario).filter(models.TextAdventureScenario.id == adventure_id).first()
+    if not adv:
+        raise HTTPException(status_code=404, detail="Adventure scenario not found")
+
+    db.delete(adv)
+    db.commit()
+    return {"message": "Adventure scenario deleted successfully"}
+
+
+# ==========================================
+# 8. VOCABULARY CRUD
+# ==========================================
+@router.get("/vocabulary")
+def get_admin_vocabulary(
+    q: Optional[str] = Query(None),
+    current_admin: models.Learner = Depends(dependencies.get_current_admin),
+    db: Session = Depends(database.get_db)
+):
+    query = db.query(models.Vocabulary)
+    if q:
+        search_term = f"%{q.strip().lower()}%"
+        query = query.filter(
+            func.lower(models.Vocabulary.word).like(search_term) |
+            func.lower(models.Vocabulary.translation).like(search_term)
+        )
+    vocabs = query.order_by(models.Vocabulary.created_at.desc()).limit(100).all()
+    return [{
+        "id": str(v.id),
+        "word": v.word,
+        "translation": v.translation,
+        "language_code": v.language_code,
+        "pos": v.pos,
+        "cefr_level": v.cefr_level,
+        "example_sentence": v.example_sentence
+    } for v in vocabs]
+
+@router.post("/vocabulary")
+def create_admin_vocabulary(
+    payload: schemas.AdminVocabularyCreate,
+    current_admin: models.Learner = Depends(dependencies.get_current_admin),
+    db: Session = Depends(database.get_db)
+):
+    v = models.Vocabulary(
+        word=payload.word,
+        translation=payload.translation,
+        language_code=payload.language_code,
+        pos=payload.pos,
+        cefr_level=payload.cefr_level,
+        example_sentence=payload.example_sentence
+    )
+    db.add(v)
+    db.commit()
+    db.refresh(v)
+    return {"message": "Vocabulary term created successfully", "id": str(v.id)}
+
+@router.put("/vocabulary/{vocab_id}")
+def update_admin_vocabulary(
+    vocab_id: uuid.UUID,
+    payload: schemas.AdminVocabularyUpdate,
+    current_admin: models.Learner = Depends(dependencies.get_current_admin),
+    db: Session = Depends(database.get_db)
+):
+    v = db.query(models.Vocabulary).filter(models.Vocabulary.id == vocab_id).first()
+    if not v:
+        raise HTTPException(status_code=404, detail="Vocabulary term not found")
+
+    for field, value in payload.dict(exclude_unset=True).items():
+        if value is not None:
+            setattr(v, field, value)
+
+    db.commit()
+    return {"message": "Vocabulary term updated successfully"}
+
+@router.delete("/vocabulary/{vocab_id}")
+def delete_admin_vocabulary(
+    vocab_id: uuid.UUID,
+    current_admin: models.Learner = Depends(dependencies.get_current_admin),
+    db: Session = Depends(database.get_db)
+):
+    v = db.query(models.Vocabulary).filter(models.Vocabulary.id == vocab_id).first()
+    if not v:
+        raise HTTPException(status_code=404, detail="Vocabulary term not found")
+
+    db.delete(v)
+    db.commit()
+    return {"message": "Vocabulary term deleted successfully"}
+
 
 
 # ==========================================
