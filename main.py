@@ -34,22 +34,12 @@ from routers import (
     report_router
 )
 
-# Create database tables
-models.Base.metadata.create_all(bind=engine)
-
-# Seed initial languages and courses
-try:
-    db_session = SessionLocal()
-    seed_initial_database(db_session)
-    db_session.close()
-except Exception as err:
-    print(f"[WARN] Database seeding warning: {err}")
-
 app = FastAPI(title="Literacy Assistance API & Backend Portal")
 
 @app.on_event("startup")
 def startup_event():
     try:
+        models.Base.metadata.create_all(bind=engine)
         db = SessionLocal()
         seed_initial_database(db)
         db.close()
