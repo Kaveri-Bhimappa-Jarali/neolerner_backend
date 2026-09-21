@@ -1,4 +1,5 @@
 import os
+import shutil
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -8,7 +9,22 @@ load_dotenv()
 
 # Determine database path absolute relative to database.py directory
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, "literacy.db")
+ORIGINAL_DB_PATH = os.path.join(BASE_DIR, "literacy.db")
+
+# Detect Vercel serverless environment (read-only filesystem except /tmp)
+IS_VERCEL = os.getenv("VERCEL") == "1" or "VERCEL" in os.environ
+
+if IS_VERCEL and not os.getenv("DATABASE_URL"):
+    TMP_DB_PATH = "/tmp/literacy.db"
+    if not os.path.exists(TMP_DB_PATH) and os.path.exists(ORIGINAL_DB_PATH):
+        try:
+            shutil.copy2(ORIGINAL_DB_PATH, TMP_DB_PATH)
+        except Exception as e:
+            print(f"[WARN] Failed to copy literacy.db to /tmp: {e}")
+    DB_PATH = TMP_DB_PATH
+else:
+    DB_PATH = ORIGINAL_DB_PATH
+
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DB_PATH}")
 
 # Standardize postgres scheme for SQLAlchemy 1.4/2.0 compatibility
