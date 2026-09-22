@@ -62,7 +62,10 @@ if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
     def set_sqlite_pragma(dbapi_connection, connection_record):
         try:
             cursor = dbapi_connection.cursor()
-            cursor.execute("PRAGMA journal_mode=WAL")
+            if IS_SERVERLESS_OR_READONLY:
+                cursor.execute("PRAGMA journal_mode=DELETE")
+            else:
+                cursor.execute("PRAGMA journal_mode=WAL")
             cursor.execute("PRAGMA busy_timeout=30000")
             cursor.close()
         except Exception:
@@ -73,6 +76,7 @@ if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
                 cursor.close()
             except Exception:
                 pass
+
 
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
