@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "neolearner-backend"
+version = "0.1.0"
+description = "NeoLearner Intelligent Literacy & Language Assistance Platform API"
+dependencies = [
+    "fastapi>=0.100.0",
+    "sqlalchemy>=2.0.0",
+    "pyjwt>=2.8.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "python-multipart>=0.0.6",
+    "httpx>=0.24.0"
+]
+
+[tool.vercel]
+entrypoint = "main:app"
