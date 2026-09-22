@@ -58,6 +58,9 @@ class LearnerBase(BaseModel):
     last_goal_completed_date: Optional[datetime] = None
     league_tier: Optional[LeagueTier] = LeagueTier.Bronze
     is_admin: bool = False
+    is_verified: bool = False
+    google_id: Optional[str] = None
+    avatar_url: Optional[str] = None
 
 class LearnerCreate(LearnerBase):
     password: str
@@ -107,9 +110,26 @@ class ShopPurchase(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
+    needs_onboarding: bool = False
+    is_verified: bool = True
 
 class TokenData(BaseModel):
     email: Optional[str] = None
+
+class GoogleAuthRequest(BaseModel):
+    credential: Optional[str] = None
+    email: EmailStr
+    full_name: str
+    google_id: str
+    avatar_url: Optional[str] = None
+
+class VerifyEmailRequest(BaseModel):
+    email: EmailStr
+    code: str
+
+class ResendCodeRequest(BaseModel):
+    email: EmailStr
+
 
 
 # --- Answer Schemas ---

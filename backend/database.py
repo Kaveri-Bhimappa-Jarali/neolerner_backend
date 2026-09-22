@@ -94,7 +94,26 @@ def ensure_tables_created():
                 try:
                     import models
                     from seed_data import seed_initial_database
+                    from sqlalchemy import text
                     models.Base.metadata.create_all(bind=engine)
+
+                    # Ensure new columns exist on learners table if created from older schema
+                    try:
+                        with engine.connect() as conn:
+                            for col_name, col_type in [
+                                ("is_verified", "BOOLEAN DEFAULT 0"),
+                                ("verification_code", "VARCHAR"),
+                                ("google_id", "VARCHAR"),
+                                ("avatar_url", "VARCHAR")
+                            ]:
+                                try:
+                                    conn.execute(text(f"ALTER TABLE learners ADD COLUMN {col_name} {col_type}"))
+                                    conn.commit()
+                                except Exception:
+                                    pass
+                    except Exception:
+                        pass
+
                     db = SessionLocal()
                     try:
                         seed_initial_database(db)
@@ -105,6 +124,7 @@ def ensure_tables_created():
                     _tables_initialized = True
                 except Exception as e:
                     print(f"[WARN] Table creation check warning: {e}")
+
 
 def get_db():
     ensure_tables_created()
