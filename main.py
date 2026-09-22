@@ -59,7 +59,7 @@ app.add_middleware(
         "https://neolearner-frontend1.vercel.app",
         "https://neolearner-frontend1-git-main-kaverijarali22-3383s-projects.vercel.app",
         "https://neolearner-backend1.vercel.app",
-        "https://neolearner-backend1-git-main-kaverijarali22-3383s-projects.vercel.app",
+        "https://neolearner-backend1-git-main-kaverijarali22-3383s-projects.vercel.app"
     ],
     allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
