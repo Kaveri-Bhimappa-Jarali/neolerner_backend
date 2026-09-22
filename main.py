@@ -39,12 +39,10 @@ app = FastAPI(title="Literacy Assistance API & Backend Portal")
 @app.on_event("startup")
 def startup_event():
     try:
-        models.Base.metadata.create_all(bind=engine)
-        db = SessionLocal()
-        seed_initial_database(db)
-        db.close()
+        database.ensure_tables_created()
     except Exception as e:
         print(f"[WARN] Startup seed exception: {e}")
+
 
 # Configure CORS for frontend access
 app.add_middleware(
