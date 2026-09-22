@@ -197,176 +197,168 @@ def seed_initial_database(db: Session):
     """
     Ensures all 6 supported languages (en, kn, te, mr, hi, es) exist in the languages table
     and that published foundational courses exist for each language in the database.
+    Optimized to commit in a single batch to avoid SQLite locking on Vercel Serverless.
     """
     lang_map: Dict[str, models.Language] = {}
 
-    # 1. Seed Languages
-    for l_data in LANGUAGES_TO_SEED:
-        existing_lang = db.query(models.Language).filter(models.Language.code == l_data["code"]).first()
-        if not existing_lang:
-            new_lang = models.Language(
-                id=uuid.uuid4(),
-                code=l_data["code"],
-                name=l_data["name"],
-                native_name=l_data["native_name"]
-            )
-            db.add(new_lang)
-            db.commit()
-            db.refresh(new_lang)
-            lang_map[l_data["code"]] = new_lang
-        else:
-            lang_map[l_data["code"]] = existing_lang
-
-    # 2. Seed Courses for Each Language
-    for c_data in COURSES_TO_SEED:
-        target_lang = lang_map.get(c_data["lang_code"])
-        if not target_lang:
-            continue
-
-        existing_course = db.query(models.Course).filter(
-            models.Course.language_id == target_lang.id,
-            models.Course.title == c_data["title"]
-        ).first()
-
-        if not existing_course:
-            course = models.Course(
-                id=uuid.uuid4(),
-                language_id=target_lang.id,
-                title=c_data["title"],
-                description=c_data["description"],
-                level=c_data["level"],
-                cefr_level=c_data["cefr_level"],
-                is_published=True
-            )
-            db.add(course)
-            db.commit()
-            db.refresh(course)
-
-            # Seed Topics, Lessons, Assessments for Course
-            for t_template in TOPICS_TEMPLATES:
-                topic = models.Topic(
+    try:
+        # 1. Seed Languages
+        for l_data in LANGUAGES_TO_SEED:
+            existing_lang = db.query(models.Language).filter(models.Language.code == l_data["code"]).first()
+            if not existing_lang:
+                new_lang = models.Language(
                     id=uuid.uuid4(),
-                    course_id=course.id,
-                    title=t_template["title"],
-                    description=t_template["description"],
-                    order=t_template["order"]
+                    code=l_data["code"],
+                    name=l_data["name"],
+                    native_name=l_data["native_name"]
                 )
-                db.add(topic)
-                db.commit()
-                db.refresh(topic)
+                db.add(new_lang)
+                lang_map[l_data["code"]] = new_lang
+            else:
+                lang_map[l_data["code"]] = existing_lang
 
-                for l_template in t_template["lessons"]:
-                    lesson = models.Lesson(
+        # 2. Seed Courses for Each Language
+        for c_data in COURSES_TO_SEED:
+            target_lang = lang_map.get(c_data["lang_code"])
+            if not target_lang:
+                continue
+
+            existing_course = db.query(models.Course).filter(
+                models.Course.language_id == target_lang.id,
+                models.Course.title == c_data["title"]
+            ).first()
+
+            if not existing_course:
+                course = models.Course(
+                    id=uuid.uuid4(),
+                    language_id=target_lang.id,
+                    title=c_data["title"],
+                    description=c_data["description"],
+                    level=c_data["level"],
+                    cefr_level=c_data["cefr_level"],
+                    is_published=True
+                )
+                db.add(course)
+
+                # Seed Topics, Lessons, Assessments for Course
+                for t_template in TOPICS_TEMPLATES:
+                    topic = models.Topic(
                         id=uuid.uuid4(),
-                        topic_id=topic.id,
-                        title=l_template["title"],
-                        content=l_template["content"],
-                        duration_minutes=l_template["duration_minutes"],
-                        order=l_template["order"]
+                        course_id=course.id,
+                        title=t_template["title"],
+                        description=t_template["description"],
+                        order=t_template["order"]
                     )
-                    db.add(lesson)
-                    db.commit()
-                    db.refresh(lesson)
+                    db.add(topic)
 
-                    ass_template = l_template.get("assessment")
-                    if ass_template:
-                        assessment = models.Assessment(
+                    for l_template in t_template["lessons"]:
+                        lesson = models.Lesson(
                             id=uuid.uuid4(),
-                            lesson_id=lesson.id,
-                            title=ass_template["title"],
-                            type=models.AssessmentType.quiz,
-                            pass_percentage=70.0
+                            topic_id=topic.id,
+                            title=l_template["title"],
+                            content=l_template["content"],
+                            duration_minutes=l_template["duration_minutes"],
+                            order=l_template["order"]
                         )
-                        db.add(assessment)
-                        db.commit()
-                        db.refresh(assessment)
+                        db.add(lesson)
 
-                        for q_template in ass_template["questions"]:
-                            question = models.Question(
+                        ass_template = l_template.get("assessment")
+                        if ass_template:
+                            assessment = models.Assessment(
                                 id=uuid.uuid4(),
-                                assessment_id=assessment.id,
-                                text=q_template["text"],
-                                type=q_template["type"],
-                                points=1,
-                                competency_tag=q_template["competency_tag"],
-                                difficulty_level=q_template["difficulty_level"]
+                                lesson_id=lesson.id,
+                                title=ass_template["title"],
+                                type=models.AssessmentType.quiz,
+                                pass_percentage=70.0
                             )
-                            db.add(question)
-                            db.commit()
-                            db.refresh(question)
+                            db.add(assessment)
 
-                            for a_template in q_template["answers"]:
-                                answer = models.Answer(
+                            for q_template in ass_template["questions"]:
+                                question = models.Question(
                                     id=uuid.uuid4(),
-                                    question_id=question.id,
-                                    text=a_template["text"],
-                                    is_correct=a_template["is_correct"],
-                                    explanation=a_template.get("explanation")
+                                    assessment_id=assessment.id,
+                                    text=q_template["text"],
+                                    type=q_template["type"],
+                                    points=1,
+                                    competency_tag=q_template["competency_tag"],
+                                    difficulty_level=q_template["difficulty_level"]
                                 )
-                                db.add(answer)
-                            db.commit()
+                                db.add(question)
 
-    # 3. Seed Default Admin Account
-    import auth
-    admin_email = "admin@neolearner.com"
-    existing_admin = db.query(models.Learner).filter(models.Learner.email == admin_email).first()
-    en_lang = db.query(models.Language).filter(models.Language.code == "en").first()
-    kn_lang = db.query(models.Language).filter(models.Language.code == "kn").first()
+                                for a_template in q_template["answers"]:
+                                    answer = models.Answer(
+                                        id=uuid.uuid4(),
+                                        question_id=question.id,
+                                        text=a_template["text"],
+                                        is_correct=a_template["is_correct"],
+                                        explanation=a_template.get("explanation")
+                                    )
+                                    db.add(answer)
 
-    if not existing_admin:
-        admin_user = models.Learner(
-            id=uuid.uuid4(),
-            email=admin_email,
-            hashed_password=auth.get_password_hash("AdminPass123!"),
-            full_name="System Administrator",
-            is_admin=True,
-            preferred_language_id=en_lang.id if en_lang else None,
-            target_language_id=kn_lang.id if kn_lang else None,
-            proficiency_level=models.ProficiencyLevel.Advanced,
-            cefr_level="C2",
-            benchmark_level="Proficient Master (C2)",
-            has_completed_placement_test=True,
-            placement_score=100.0,
-            xp=2500,
-            gems=2000,
-            hearts=5,
-            streak=14
-        )
-        db.add(admin_user)
-        db.commit()
-    elif existing_admin and (not existing_admin.preferred_language_id or not existing_admin.target_language_id):
-        existing_admin.preferred_language_id = en_lang.id if en_lang else None
-        existing_admin.target_language_id = kn_lang.id if kn_lang else None
-        db.commit()
+        # 3. Seed Default Admin Account
+        import auth
+        admin_email = "admin@neolearner.com"
+        existing_admin = db.query(models.Learner).filter(models.Learner.email == admin_email).first()
+        en_lang = lang_map.get("en") or db.query(models.Language).filter(models.Language.code == "en").first()
+        kn_lang = lang_map.get("kn") or db.query(models.Language).filter(models.Language.code == "kn").first()
 
-    # 4. Seed 10 Standard Achievement Definitions
-    ACHIEVEMENTS_TO_SEED = [
-        {"code": "first_lesson", "name": "First Step", "description": "Complete your first lesson in any language course.", "icon": "🚀", "category": "lessons", "threshold": 1, "xp_reward": 50, "gem_reward": 25},
-        {"code": "lessons_5", "name": "Scholar", "description": "Complete 5 interactive literacy lessons.", "icon": "📚", "category": "lessons", "threshold": 5, "xp_reward": 100, "gem_reward": 50},
-        {"code": "lessons_10", "name": "Literacy Champion", "description": "Complete 10 interactive lessons across topics.", "icon": "🎓", "category": "lessons", "threshold": 10, "xp_reward": 200, "gem_reward": 100},
-        {"code": "streak_3", "name": "3-Day Streak", "description": "Maintain active learning for 3 consecutive days.", "icon": "🔥", "category": "streak", "threshold": 3, "xp_reward": 75, "gem_reward": 30},
-        {"code": "streak_7", "name": "7-Day Warrior", "description": "Maintain active learning for a full 7 days.", "icon": "⚡", "category": "streak", "threshold": 7, "xp_reward": 150, "gem_reward": 75},
-        {"code": "speaking_1", "name": "Voice Pioneer", "description": "Complete 1 pronunciation assessment in the Speaking Lab.", "icon": "🎤", "category": "speaking", "threshold": 1, "xp_reward": 50, "gem_reward": 25},
-        {"code": "speaking_5", "name": "Speech Master", "description": "Complete 5 pronunciation practice sessions with >75% accuracy.", "icon": "🎧", "category": "speaking", "threshold": 5, "xp_reward": 150, "gem_reward": 60},
-        {"code": "xp_500", "name": "500 XP Milestone", "description": "Earn 500 total XP points across drills and exercises.", "icon": "🌟", "category": "xp", "threshold": 500, "xp_reward": 100, "gem_reward": 50},
-        {"code": "xp_1000", "name": "1,000 XP Master", "description": "Earn 1,000 total XP points.", "icon": "👑", "category": "xp", "threshold": 1000, "xp_reward": 250, "gem_reward": 125},
-        {"code": "placement_done", "name": "Diagnostic Certified", "description": "Complete the 15-question initial diagnostic exam.", "icon": "🎖️", "category": "milestones", "threshold": 1, "xp_reward": 100, "gem_reward": 50}
-    ]
-
-    for ach_data in ACHIEVEMENTS_TO_SEED:
-        existing_ach = db.query(models.AchievementDefinition).filter(models.AchievementDefinition.code == ach_data["code"]).first()
-        if not existing_ach:
-            new_ach = models.AchievementDefinition(
+        if not existing_admin:
+            admin_user = models.Learner(
                 id=uuid.uuid4(),
-                code=ach_data["code"],
-                name=ach_data["name"],
-                description=ach_data["description"],
-                icon=ach_data["icon"],
-                category=ach_data["category"],
-                threshold=ach_data["threshold"],
-                xp_reward=ach_data["xp_reward"],
-                gem_reward=ach_data["gem_reward"]
+                email=admin_email,
+                hashed_password=auth.get_password_hash("AdminPass123!"),
+                full_name="System Administrator",
+                is_admin=True,
+                preferred_language_id=en_lang.id if en_lang else None,
+                target_language_id=kn_lang.id if kn_lang else None,
+                proficiency_level=models.ProficiencyLevel.Advanced,
+                cefr_level="C2",
+                benchmark_level="Proficient Master (C2)",
+                has_completed_placement_test=True,
+                placement_score=100.0,
+                xp=2500,
+                gems=2000,
+                hearts=5,
+                streak=14
             )
-            db.add(new_ach)
-            db.commit()
+            db.add(admin_user)
+        elif existing_admin and (not existing_admin.preferred_language_id or not existing_admin.target_language_id):
+            existing_admin.preferred_language_id = en_lang.id if en_lang else None
+            existing_admin.target_language_id = kn_lang.id if kn_lang else None
+
+        # 4. Seed 10 Standard Achievement Definitions
+        ACHIEVEMENTS_TO_SEED = [
+            {"code": "first_lesson", "name": "First Step", "description": "Complete your first lesson in any language course.", "icon": "🚀", "category": "lessons", "threshold": 1, "xp_reward": 50, "gem_reward": 25},
+            {"code": "lessons_5", "name": "Scholar", "description": "Complete 5 interactive literacy lessons.", "icon": "📚", "category": "lessons", "threshold": 5, "xp_reward": 100, "gem_reward": 50},
+            {"code": "lessons_10", "name": "Literacy Champion", "description": "Complete 10 interactive lessons across topics.", "icon": "🎓", "category": "lessons", "threshold": 10, "xp_reward": 200, "gem_reward": 100},
+            {"code": "streak_3", "name": "3-Day Streak", "description": "Maintain active learning for 3 consecutive days.", "icon": "🔥", "category": "streak", "threshold": 3, "xp_reward": 75, "gem_reward": 30},
+            {"code": "streak_7", "name": "7-Day Warrior", "description": "Maintain active learning for a full 7 days.", "icon": "⚡", "category": "streak", "threshold": 7, "xp_reward": 150, "gem_reward": 75},
+            {"code": "speaking_1", "name": "Voice Pioneer", "description": "Complete 1 pronunciation assessment in the Speaking Lab.", "icon": "🎤", "category": "speaking", "threshold": 1, "xp_reward": 50, "gem_reward": 25},
+            {"code": "speaking_5", "name": "Speech Master", "description": "Complete 5 pronunciation practice sessions with >75% accuracy.", "icon": "🎧", "category": "speaking", "threshold": 5, "xp_reward": 150, "gem_reward": 60},
+            {"code": "xp_500", "name": "500 XP Milestone", "description": "Earn 500 total XP points across drills and exercises.", "icon": "🌟", "category": "xp", "threshold": 500, "xp_reward": 100, "gem_reward": 50},
+            {"code": "xp_1000", "name": "1,000 XP Master", "description": "Earn 1,000 total XP points.", "icon": "👑", "category": "xp", "threshold": 1000, "xp_reward": 250, "gem_reward": 125},
+            {"code": "placement_done", "name": "Diagnostic Certified", "description": "Complete the 15-question initial diagnostic exam.", "icon": "🎖️", "category": "milestones", "threshold": 1, "xp_reward": 100, "gem_reward": 50}
+        ]
+
+        for ach_data in ACHIEVEMENTS_TO_SEED:
+            existing_ach = db.query(models.AchievementDefinition).filter(models.AchievementDefinition.code == ach_data["code"]).first()
+            if not existing_ach:
+                new_ach = models.AchievementDefinition(
+                    id=uuid.uuid4(),
+                    code=ach_data["code"],
+                    name=ach_data["name"],
+                    description=ach_data["description"],
+                    icon=ach_data["icon"],
+                    category=ach_data["category"],
+                    threshold=ach_data["threshold"],
+                    xp_reward=ach_data["xp_reward"],
+                    gem_reward=ach_data["gem_reward"]
+                )
+                db.add(new_ach)
+
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        print(f"[WARN] Error during database seeding: {e}")
+
 
