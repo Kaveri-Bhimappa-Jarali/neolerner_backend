@@ -39,7 +39,28 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
 
+_tables_initialized = False
+
+def ensure_tables_created():
+    global _tables_initialized
+    if not _tables_initialized:
+        try:
+            import models
+            from seed_data import seed_initial_database
+            models.Base.metadata.create_all(bind=engine)
+            db = SessionLocal()
+            try:
+                seed_initial_database(db)
+            except Exception as se:
+                print(f"[WARN] Seed exception in ensure_tables_created: {se}")
+            finally:
+                db.close()
+            _tables_initialized = True
+        except Exception as e:
+            print(f"[WARN] Table creation check warning: {e}")
+
 def get_db():
+    ensure_tables_created()
     db = SessionLocal()
     try:
         yield db

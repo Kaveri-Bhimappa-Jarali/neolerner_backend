@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, ConfigDict
-from typing import Optional, List
+from typing import Optional, List, Any
 from uuid import UUID
 from datetime import datetime
 from models import (
@@ -27,8 +27,8 @@ class LearnerBase(BaseModel):
     email: EmailStr
     full_name: str
     age: Optional[int] = None
-    preferred_language_id: Optional[UUID] = None
-    target_language_id: Optional[UUID] = None
+    preferred_language_id: Optional[Any] = None
+    target_language_id: Optional[Any] = None
     preferred_language_code: Optional[str] = None
     target_language_code: Optional[str] = None
     proficiency_level: ProficiencyLevel = ProficiencyLevel.Beginner

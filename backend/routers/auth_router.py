@@ -5,7 +5,37 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 import schemas, models, auth, database
 
+import uuid
+from typing import Optional
+
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+
+def resolve_language_id(db: Session, lang_val, code_val) -> Optional[uuid.UUID]:
+    if isinstance(lang_val, uuid.UUID):
+        return lang_val
+    if isinstance(lang_val, str):
+        try:
+            return uuid.UUID(lang_val)
+        except ValueError:
+            lang_by_code = db.query(models.Language).filter(
+                func.lower(models.Language.code) == lang_val.lower()
+            ).first()
+            if lang_by_code:
+                return lang_by_code.id
+    if isinstance(lang_val, int):
+        languages = db.query(models.Language).all()
+        if 0 < lang_val <= len(languages):
+            return languages[lang_val - 1].id
+        elif languages:
+            return languages[0].id
+    if code_val and isinstance(code_val, str):
+        lang_by_code = db.query(models.Language).filter(
+            func.lower(models.Language.code) == code_val.lower()
+        ).first()
+        if lang_by_code:
+            return lang_by_code.id
+    first_lang = db.query(models.Language).first()
+    return first_lang.id if first_lang else None
 
 @router.post("/register", response_model=schemas.LearnerResponse, status_code=status.HTTP_201_CREATED)
 @router.post("/register/", response_model=schemas.LearnerResponse, status_code=status.HTTP_201_CREATED)
@@ -19,18 +49,8 @@ def register(learner: schemas.LearnerCreate, db: Session = Depends(database.get_
     
     hashed_password = auth.get_password_hash(learner.password)
     
-    pref_id = learner.preferred_language_id
-    target_id = learner.target_language_id
-
-    if not pref_id and learner.preferred_language_code:
-        p_lang = db.query(models.Language).filter(models.Language.code == learner.preferred_language_code.lower()).first()
-        if p_lang:
-            pref_id = p_lang.id
-
-    if not target_id and learner.target_language_code:
-        t_lang = db.query(models.Language).filter(models.Language.code == learner.target_language_code.lower()).first()
-        if t_lang:
-            target_id = t_lang.id
+    pref_id = resolve_language_id(db, learner.preferred_language_id, learner.preferred_language_code)
+    target_id = resolve_language_id(db, learner.target_language_id, learner.target_language_code)
 
     new_learner = models.Learner(
         email=normalized_email,
