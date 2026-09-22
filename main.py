@@ -36,14 +36,6 @@ from routers import (
 
 app = FastAPI(title="Literacy Assistance API & Backend Portal")
 
-@app.on_event("startup")
-def startup_event():
-    try:
-        database.ensure_tables_created()
-    except Exception as e:
-        print(f"[WARN] Startup seed exception: {e}")
-
-
 # Configure CORS for frontend access
 app.add_middleware(
     CORSMiddleware,
@@ -53,6 +45,30 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def fix_vercel_path_middleware(request, call_next):
+    path = request.url.path
+
+    # Clean up /api/index.py prefix added by Vercel rewrites
+    if path.startswith("/api/index.py"):
+        sub_path = path[len("/api/index.py"):]
+        if not sub_path or sub_path in ("/", "/api", "/api/"):
+            path = "/api/health"
+        elif sub_path.startswith("/api/"):
+            path = sub_path
+        else:
+            path = "/api" + (sub_path if sub_path.startswith("/") else "/" + sub_path)
+    
+    if path in ("/", "/api", "/api/"):
+        path = "/api/health"
+    elif not path.startswith("/api/") and path not in ("/health", "/admin", "/docs", "/openapi.json", "/redoc"):
+        path = "/api" + (path if path.startswith("/") else "/" + path)
+        
+    request.scope["path"] = path
+    return await call_next(request)
+
+
 
 @app.get("/health")
 @app.get("/api/health")
@@ -97,8 +113,8 @@ def get_project_insights(db: Session = Depends(database.get_db)):
     questions_count = db.query(models.Question).count()
     vocabulary_count = db.query(models.Vocabulary).count()
     achievements_count = db.query(models.AchievementDefinition).count()
-    stories_count = db.query(models.InteractiveStory).count()
-    adventures_count = db.query(models.TextAdventureScenario).count()
+    stories_count = db.query(models.Story).count()
+    adventures_count = db.query(models.Adventure).count()
     
     return {
         "project_name": "LinguaLearn — Intelligent Literacy & Language Assistance Platform",
