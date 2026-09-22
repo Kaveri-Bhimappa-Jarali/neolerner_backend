@@ -80,6 +80,12 @@ class Learner(Base):
     full_name = Column(String, nullable=False)
     age = Column(Integer, nullable=True)
     
+    # Auth & Verification fields
+    is_verified = Column(Boolean, default=False)
+    verification_code = Column(String, nullable=True)
+    google_id = Column(String, nullable=True, index=True)
+    avatar_url = Column(String, nullable=True)
+    
     preferred_language_id = Column(Uuid(as_uuid=True), ForeignKey('languages.id'), nullable=True)
     target_language_id = Column(Uuid(as_uuid=True), ForeignKey('languages.id'), nullable=True)
     
