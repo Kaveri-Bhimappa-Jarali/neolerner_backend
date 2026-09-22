@@ -1,6 +1,3 @@
-<<<<<<< HEAD
-# Literacy-Assistance
-=======
 # Literacy Assistance Platform 📚
 
 A comprehensive full-stack literacy and language learning web application built with **FastAPI** (Python) and **React** (Vite). Features structured course modules, interactive phonics exercises, automated quiz scoring, personalized recommendations, and a visual backend database admin portal.
@@ -162,4 +159,3 @@ npm run build
 
 ## 📄 License
 This project is licensed under the MIT License.
->>>>>>> cc3e608 (Initial commit: Complete Literacy Assistance platform with 11 DB entities, FastAPI backend, and React frontend)

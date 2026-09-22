@@ -1,15 +1,41 @@
-import sys
 import os
+import sys
+import traceback
 
-# Add backend directory to sys.path
-root_dir = os.path.dirname(os.path.abspath(__file__))
-backend_dir = os.path.join(root_dir, "backend")
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BACKEND_DIR = os.path.join(ROOT_DIR, "backend")
 
-if backend_dir not in sys.path:
-    sys.path.insert(0, backend_dir)
-if root_dir not in sys.path:
-    sys.path.insert(0, root_dir)
+for path in (ROOT_DIR, BACKEND_DIR):
+    if path not in sys.path:
+        sys.path.insert(0, path)
 
-from main import app
+try:
+    from main import app
+except Exception as e:
+    print(f"[VERCEL IMPORT ERROR] Failed to import main: {e}")
+    traceback.print_exc()
+
+    from fastapi import FastAPI
+    from fastapi.middleware.cors import CORSMiddleware
+
+    app = FastAPI(title="NeoLearner Fallback API")
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"])
+    def fallback(path: str):
+        return {
+            "status": "error",
+            "service": "NeoLearner Backend API (Import Error Fallback)",
+            "error": str(e),
+            "requested_path": path,
+            "traceback": traceback.format_exc(),
+        }
 
 __all__ = ["app"]
