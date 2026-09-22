@@ -1,6 +1,6 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError, jwt
+import jwt
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 import database, models, auth
@@ -18,8 +18,9 @@ def get_current_learner(token: str = Depends(oauth2_scheme), db: Session = Depen
         email: str = payload.get("sub")
         if email is None:
             raise credentials_exception
-    except JWTError:
+    except jwt.PyJWTError:
         raise credentials_exception
+
     
     from sqlalchemy.orm import joinedload
     normalized_email = email.strip().lower()

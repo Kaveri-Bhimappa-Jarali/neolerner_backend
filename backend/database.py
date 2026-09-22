@@ -12,14 +12,33 @@ load_dotenv()
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ORIGINAL_DB_PATH = os.path.join(BASE_DIR, "literacy.db")
 
-# Detect Vercel serverless environment (read-only filesystem except /tmp)
-IS_VERCEL = os.getenv("VERCEL") == "1" or "VERCEL" in os.environ
+def is_readonly_env():
+    """Detect Vercel, AWS Lambda, or any read-only filesystem environment."""
+    if (
+        os.getenv("VERCEL") in ("1", "true", "True", "yes")
+        or "VERCEL" in os.environ
+        or "VERCEL_ENV" in os.environ
+        or "AWS_LAMBDA_FUNCTION_NAME" in os.environ
+        or "LAMBDA_TASK_ROOT" in os.environ
+    ):
+        return True
+    try:
+        test_file = os.path.join(BASE_DIR, ".write_test")
+        with open(test_file, "w") as f:
+            f.write("test")
+        os.remove(test_file)
+        return False
+    except (IOError, OSError, PermissionError):
+        return True
 
-if IS_VERCEL and not os.getenv("DATABASE_URL"):
+IS_SERVERLESS_OR_READONLY = is_readonly_env()
+
+if IS_SERVERLESS_OR_READONLY and not os.getenv("DATABASE_URL"):
     TMP_DB_PATH = "/tmp/literacy.db"
     if not os.path.exists(TMP_DB_PATH) and os.path.exists(ORIGINAL_DB_PATH):
         try:
             shutil.copy2(ORIGINAL_DB_PATH, TMP_DB_PATH)
+            print(f"[INFO] Copied seed database to {TMP_DB_PATH}")
         except Exception as e:
             print(f"[WARN] Failed to copy literacy.db to /tmp: {e}")
     DB_PATH = TMP_DB_PATH
@@ -47,7 +66,14 @@ if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
             cursor.execute("PRAGMA busy_timeout=30000")
             cursor.close()
         except Exception:
-            pass
+            try:
+                cursor = dbapi_connection.cursor()
+                cursor.execute("PRAGMA journal_mode=MEMORY")
+                cursor.execute("PRAGMA busy_timeout=30000")
+                cursor.close()
+            except Exception:
+                pass
+
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -83,4 +109,3 @@ def get_db():
         yield db
     finally:
         db.close()
-
