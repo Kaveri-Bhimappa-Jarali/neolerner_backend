@@ -1,7 +1,19 @@
 import uuid
+import os
+import sys
 from typing import Dict
 from sqlalchemy.orm import Session
-import models
+
+backend_dir = os.path.dirname(os.path.abspath(__file__))
+if backend_dir not in sys.path:
+    sys.path.insert(0, backend_dir)
+
+try:
+    import models
+    import auth
+except ImportError:
+    from . import models
+    from . import auth
 
 LANGUAGES_TO_SEED = [
     {"code": "en", "name": "English", "native_name": "English"},
@@ -355,6 +367,101 @@ def seed_initial_database(db: Session):
                     gem_reward=ach_data["gem_reward"]
                 )
                 db.add(new_ach)
+
+        # 5. Seed Vocabulary Dataset across all 6 languages
+        VOCABULARY_BY_LANG = {
+            "en": [
+                {"word": "Hello", "translation": "Greeting phrase", "explanation": "Standard polite greeting"},
+                {"word": "Book", "translation": "Reading material", "explanation": "Bound sheets of paper for reading"},
+                {"word": "Water", "translation": "Essential liquid", "explanation": "H2O vital for life"},
+                {"word": "School", "translation": "Place of learning", "explanation": "Educational institution"},
+                {"word": "Friend", "translation": "Companion", "explanation": "Person with whom one has a bond of affection"},
+                {"word": "Apple", "translation": "Fruit", "explanation": "Round edible fruit"},
+                {"word": "Sun", "translation": "Star of daylight", "explanation": "Central star of solar system"},
+                {"word": "Read", "translation": "Literacy action", "explanation": "Look at and comprehend written words"},
+                {"word": "Write", "translation": "Literacy action", "explanation": "Mark letters or symbols on paper"},
+                {"word": "Learn", "translation": "Education action", "explanation": "Gain knowledge or skill through study"}
+            ],
+            "kn": [
+                {"word": "ನಮಸ್ಕಾರ", "translation": "Hello / Greeting", "explanation": "ಕನ್ನಡ ಸಾಂಪ್ರದಾಯಿಕ ಶುಭಾಶಯ"},
+                {"word": "ಪುಸ್ತಕ", "translation": "Book", "explanation": "ಓದಲು ಬಳಸುವ ಗ್ರಂಥ"},
+                {"word": "ನೀರು", "translation": "Water", "explanation": "ಜೀವಜಲ"},
+                {"word": "ಶಾಲೆ", "translation": "School", "explanation": "ವಿದ್ಯಾಲಯ"},
+                {"word": "ಸ್ನೇಹಿತ", "translation": "Friend", "explanation": "ಆಪ್ತ ಮಿತ್ರ"},
+                {"word": "ಸೇಬು", "translation": "Apple", "explanation": "ಸಿಹಿ ಹಣ್ಣು"},
+                {"word": "ಸೂರ್ಯ", "translation": "Sun", "explanation": "ಬೆಳಕು ನೀಡುವ ಸೂರ್ಯದೇವ"},
+                {"word": "ಓದು", "translation": "Read", "explanation": "ಅಕ್ಷರಗಳನ್ನು ಓದುವ ಕ್ರಿಯೆ"},
+                {"word": "ಬರೆ", "translation": "Write", "explanation": "ಅಕ್ಷರಗಳನ್ನು ಬರೆಯುವ ಕ್ರಿಯೆ"},
+                {"word": "ಕಲಿ", "translation": "Learn", "explanation": "ಜ್ಞಾನ ಪಡೆದುಕೊಳ್ಳುವುದು"}
+            ],
+            "te": [
+                {"word": "నమస్కారం", "translation": "Hello / Greeting", "explanation": "తెలుగు సాంప్రదాయ నమస్కారం"},
+                {"word": "పుస్తకం", "translation": "Book", "explanation": "చదివే గ్రంథం"},
+                {"word": "నీరు", "translation": "Water", "explanation": "తాగునీరు"},
+                {"word": "బడి", "translation": "School", "explanation": "పాఠశాల"},
+                {"word": "స్నేహితుడు", "translation": "Friend", "explanation": "మిత్రుడు"},
+                {"word": "ఆపిల్", "translation": "Apple", "explanation": "పండు"},
+                {"word": "సూర్యుడు", "translation": "Sun", "explanation": "వెలుగు నిచ్చే సూర్యుడు"},
+                {"word": "చదువు", "translation": "Read", "explanation": "అక్షరాలు చదవడం"},
+                {"word": "రాయి", "translation": "Write", "explanation": "రాయడం"},
+                {"word": "నేర్చుకో", "translation": "Learn", "explanation": "విద్య అభ్యసించడం"}
+            ],
+            "mr": [
+                {"word": "नमस्कार", "translation": "Hello / Greeting", "explanation": "मराठी पारंपारिक नमस्कार"},
+                {"word": "पुस्तक", "translation": "Book", "explanation": "वाचनाचे पुस्तक"},
+                {"word": "पाणी", "translation": "Water", "explanation": "पिण्याचे पाणी"},
+                {"word": "शाळा", "translation": "School", "explanation": "शाळा / विद्यालय"},
+                {"word": "मित्र", "translation": "Friend", "explanation": "सखा / मित्र"},
+                {"word": "सफरचंद", "translation": "Apple", "explanation": "फळ"},
+                {"word": "सूर्य", "translation": "Sun", "explanation": "प्रकाश देणारा सूर्य"},
+                {"word": "वाच", "translation": "Read", "explanation": "वाचन करणे"},
+                {"word": "लिही", "translation": "Write", "explanation": "लेखन करणे"},
+                {"word": "शिक", "translation": "Learn", "explanation": "ज्ञान मिळवणे"}
+            ],
+            "hi": [
+                {"word": "नमस्ते", "translation": "Hello / Greeting", "explanation": "हिन्दी अभिवादन"},
+                {"word": "किताब", "translation": "Book", "explanation": "पढ़ने की पुस्तक"},
+                {"word": "पानी", "translation": "Water", "explanation": "पेय जल"},
+                {"word": "विद्यालय", "translation": "School", "explanation": "पाठशाला"},
+                {"word": "मित्र", "translation": "Friend", "explanation": "दोस्त"},
+                {"word": "सेब", "translation": "Apple", "explanation": "फल"},
+                {"word": "सूर्य", "translation": "Sun", "explanation": "सूरज"},
+                {"word": "पढ़ो", "translation": "Read", "explanation": "पढ़ना"},
+                {"word": "लिखो", "translation": "Write", "explanation": "लिखना"},
+                {"word": "सीखो", "translation": "Learn", "explanation": "ज्ञान अर्जित करना"}
+            ],
+            "es": [
+                {"word": "Hola", "translation": "Hello", "explanation": "Saludos en español"},
+                {"word": "Libro", "translation": "Book", "explanation": "Texto para leer"},
+                {"word": "Agua", "translation": "Water", "explanation": "Líquido vital"},
+                {"word": "Escuela", "translation": "School", "explanation": "Lugar de aprendizaje"},
+                {"word": "Amigo", "translation": "Friend", "explanation": "Compañero afectuoso"},
+                {"word": "Manzana", "translation": "Apple", "explanation": "Fruta comestible"},
+                {"word": "Sol", "translation": "Sun", "explanation": "Estrella central"},
+                {"word": "Leer", "translation": "Read", "explanation": "Acción de leer"},
+                {"word": "Escribir", "translation": "Write", "explanation": "Acción de escribir"},
+                {"word": "Aprender", "translation": "Learn", "explanation": "Adquirir conocimiento"}
+            ]
+        }
+
+        for lang_code, vocab_list in VOCABULARY_BY_LANG.items():
+            lang_obj = lang_map.get(lang_code) or db.query(models.Language).filter(models.Language.code == lang_code).first()
+            if lang_obj:
+                for v_item in vocab_list:
+                    existing_vocab = db.query(models.Vocabulary).filter(
+                        models.Vocabulary.language_id == lang_obj.id,
+                        models.Vocabulary.word == v_item["word"]
+                    ).first()
+                    if not existing_vocab:
+                        new_vocab = models.Vocabulary(
+                            id=uuid.uuid4(),
+                            language_id=lang_obj.id,
+                            word=v_item["word"],
+                            translation=v_item["translation"],
+                            explanation=v_item["explanation"],
+                            difficulty_level=1
+                        )
+                        db.add(new_vocab)
 
         db.commit()
     except Exception as e:
