@@ -5,6 +5,7 @@ import schemas, models, database, dependencies, gamification
 router = APIRouter(prefix="/api/learners", tags=["learners"])
 
 @router.get("/me", response_model=schemas.LearnerResponse)
+@router.get("/me/", response_model=schemas.LearnerResponse)
 def read_users_me(
     current_learner: models.Learner = Depends(dependencies.get_current_learner),
     db: Session = Depends(database.get_db)
@@ -14,6 +15,7 @@ def read_users_me(
     return current_learner
 
 @router.put("/me", response_model=schemas.LearnerResponse)
+@router.put("/me/", response_model=schemas.LearnerResponse)
 def update_user_me(
     learner_update: schemas.LearnerUpdate, 
     current_learner: models.Learner = Depends(dependencies.get_current_learner), 
@@ -79,6 +81,7 @@ def update_user_me(
     return current_learner
 
 @router.post("/shop/buy", response_model=schemas.LearnerResponse)
+@router.post("/shop/buy/", response_model=schemas.LearnerResponse)
 def buy_shop_item(
     purchase: schemas.ShopPurchase,
     current_learner: models.Learner = Depends(dependencies.get_current_learner),
@@ -118,6 +121,7 @@ def buy_shop_item(
     return current_learner
 
 @router.post("/practice", response_model=schemas.LearnerResponse)
+@router.post("/practice/", response_model=schemas.LearnerResponse)
 def practice_for_heart(
     current_learner: models.Learner = Depends(dependencies.get_current_learner),
     db: Session = Depends(database.get_db)
@@ -137,6 +141,7 @@ def practice_for_heart(
     return current_learner
 
 @router.get("/leaderboard")
+@router.get("/leaderboard/")
 def get_leaderboard(
     current_learner: models.Learner = Depends(dependencies.get_current_learner),
     db: Session = Depends(database.get_db)
@@ -180,6 +185,7 @@ def get_leaderboard(
     }
 
 @router.get("/achievements")
+@router.get("/achievements/")
 def get_achievements(
     current_learner: models.Learner = Depends(dependencies.get_current_learner),
     db: Session = Depends(database.get_db)
