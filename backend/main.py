@@ -34,7 +34,7 @@ from routers import (
     report_router
 )
 
-app = FastAPI(title="Literacy Assistance API & Backend Portal", redirect_slashes=False)
+app = FastAPI(title="Literacy Assistance API & Backend Portal")
 
 # Configure CORS for frontend access
 app.add_middleware(
@@ -44,59 +44,76 @@ app.add_middleware(
         "http://localhost:3000",
         "http://127.0.0.1:5173",
         "http://127.0.0.1:3000",
-        "https://neolearner-frontend1.vercel.app",
-        "https://neolearner-frontend1-git-main-kaverijarali22-3383s-projects.vercel.app",
-        "https://neolearner-backend1.vercel.app",
-        "https://neolearner-backend1-git-main-kaverijarali22-3383s-projects.vercel.app"
+        "https://neolearner-frontend.vercel.app",
+        "https://neolearner-frontend-git-main-kaverijarali22-3383s-projects.vercel.app"
     ],
-    allow_origin_regex=r".*",
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-@app.options("/{path:path}")
-def global_options_preflight_handler(path: str):
-    return {"status": "ok"}
-
 
 @app.middleware("http")
 async def fix_vercel_path_middleware(request, call_next):
-    if request.method == "OPTIONS":
-        return await call_next(request)
+    # 1. Check query parameter `path` or `__path__` passed by Vercel rewrite
+    real_path = request.query_params.get("path") or request.query_params.get("__path__")
+
+    # 2. Check headers for real URI
+    if not real_path:
+        for header in ("x-forwarded-uri", "x-real-path", "x-invoke-path", "x-original-uri"):
+            val = request.headers.get(header)
+            if val and not ("(" in val or "*" in val or "$" in val):
+                real_path = val
+                break
 
     path = request.url.path
 
-    # Check Vercel headers for real requested URI
-    forwarded_uri = request.headers.get("x-forwarded-uri") or request.headers.get("x-matched-path")
-    if forwarded_uri:
-        forwarded_path = forwarded_uri.split("?")[0]
-        if forwarded_path and forwarded_path not in ("/", "/api", "/api/"):
-            path = forwarded_path
+    if real_path:
+        cleaned = real_path.split("?")[0]
+        if cleaned and cleaned not in ("/api/index.py", "/index.py"):
+            path = cleaned
 
-    # Clean up /api/index.py prefix if present
+    # 3. Clean up /api/index.py or /index.py prefix if still present
     if path.startswith("/api/index.py"):
         sub_path = path[len("/api/index.py"):]
-        if sub_path and sub_path not in ("/", "/api", "/api/"):
+        if sub_path and sub_path not in ("", "/", "/api", "/api/"):
             if sub_path.startswith("/api/"):
                 path = sub_path
             else:
                 path = "/api" + (sub_path if sub_path.startswith("/") else "/" + sub_path)
+        else:
+            path = "/api/health"
+    elif path.startswith("/index.py"):
+        sub_path = path[len("/index.py"):]
+        if sub_path and sub_path not in ("", "/", "/api", "/api/"):
+            if sub_path.startswith("/api/"):
+                path = sub_path
+            else:
+                path = "/api" + (sub_path if sub_path.startswith("/") else "/" + sub_path)
+        else:
+            path = "/api/health"
 
-    if path in ("/", "/api", "/api/"):
+    if path in ("/", "/api", "/api/", "/api/index.py", "/index.py"):
         path = "/api/health"
     elif not path.startswith("/api/") and path not in ("/health", "/admin", "/docs", "/openapi.json", "/redoc"):
         path = "/api" + (path if path.startswith("/") else "/" + path)
 
     request.scope["path"] = path
+    request.scope["raw_path"] = path.encode("ascii")
     return await call_next(request)
 
 
 
 
 
-@app.get("/health")
-@app.get("/api/health")
+ALL_METHODS = ["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"]
+
+@app.api_route("/", methods=ALL_METHODS, include_in_schema=False)
+@app.api_route("/health", methods=ALL_METHODS)
+@app.api_route("/api/health", methods=ALL_METHODS, include_in_schema=False)
+@app.api_route("/api/index.py", methods=ALL_METHODS, include_in_schema=False)
+@app.api_route("/index.py", methods=ALL_METHODS, include_in_schema=False)
 def health_check():
     """Health check endpoint for cloud hosting platforms (Render, Vercel, Railway)."""
     return {"status": "ok", "service": "NeoLearner Backend API"}
