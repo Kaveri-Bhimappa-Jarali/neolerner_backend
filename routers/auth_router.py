@@ -39,6 +39,15 @@ def resolve_language_id(db: Session, lang_val, code_val) -> Optional[uuid.UUID]:
 
 import random
 
+try:
+    from email_service import send_verification_email
+except ImportError:
+    try:
+        from backend.email_service import send_verification_email
+    except ImportError:
+        def send_verification_email(to_email, code, full_name=""):
+            print(f"[EMAIL FALLBACK] Verification code for {to_email}: {code}")
+
 @router.post("/register", response_model=schemas.LearnerResponse, status_code=status.HTTP_201_CREATED)
 @router.post("/register/", response_model=schemas.LearnerResponse, status_code=status.HTTP_201_CREATED)
 def register(learner: schemas.LearnerCreate, db: Session = Depends(database.get_db)):
@@ -74,6 +83,10 @@ def register(learner: schemas.LearnerCreate, db: Session = Depends(database.get_
         db.add(new_learner)
         db.commit()
         db.refresh(new_learner)
+
+        # Dispatch real 6-digit verification code email
+        send_verification_email(normalized_email, verification_code, learner.full_name)
+
         return new_learner
     except HTTPException:
         raise
@@ -192,18 +205,18 @@ def verify_email(req: schemas.VerifyEmailRequest, db: Session = Depends(database
     if not learner:
         raise HTTPException(status_code=404, detail="Learner email not found")
     
-    # Allow 123456 as universal demo verification code or exact stored code
-    if req.code.strip() == "123456" or (learner.verification_code and learner.verification_code.strip() == req.code.strip()):
+    # Strictly require exact matching verification code stored for the user
+    if learner.verification_code and learner.verification_code.strip() == req.code.strip():
         learner.is_verified = True
         db.commit()
         return {"status": "success", "message": "Email verified successfully"}
     
-    raise HTTPException(status_code=400, detail="Invalid verification code. Please check code or click Resend.")
+    raise HTTPException(status_code=400, detail="Invalid verification code. Please check your email or click Resend.")
 
 @router.post("/resend-code")
 @router.post("/resend-code/")
 def resend_code(req: schemas.ResendCodeRequest, db: Session = Depends(database.get_db)):
-    """Generates a new 6-digit verification code."""
+    """Generates a new 6-digit verification code and emails it."""
     normalized_email = req.email.strip().lower()
     learner = db.query(models.Learner).filter(
         func.lower(func.trim(models.Learner.email)) == normalized_email
@@ -215,6 +228,11 @@ def resend_code(req: schemas.ResendCodeRequest, db: Session = Depends(database.g
     new_code = str(random.randint(100000, 999999))
     learner.verification_code = new_code
     db.commit()
-    return {"status": "success", "message": "New verification code sent!", "code": new_code}
+
+    # Dispatch real 6-digit verification code email
+    send_verification_email(normalized_email, new_code, learner.full_name)
+
+    return {"status": "success", "message": "New verification code sent to your email!"}
+
 
 
