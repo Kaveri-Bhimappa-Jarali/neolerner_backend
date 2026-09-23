@@ -188,22 +188,12 @@ def get_project_insights(db: Session = Depends(database.get_db)):
 
 
 TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), "templates", "index.html")
-FRONTEND_DIST = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "dist")
 
-if os.path.exists(FRONTEND_DIST):
-    app.mount("/assets", StaticFiles(directory=os.path.join(FRONTEND_DIST, "assets")), name="assets")
 
-    @app.get("/app", response_class=HTMLResponse)
-    def read_frontend_app():
-        index_file = os.path.join(FRONTEND_DIST, "index.html")
-        if os.path.exists(index_file):
-            return FileResponse(index_file)
-        return "<h1>Frontend Application</h1>"
-
-@app.get("/", response_class=HTMLResponse)
 @app.get("/admin", response_class=HTMLResponse)
 def read_backend_portal():
     if os.path.exists(TEMPLATE_PATH):
         with open(TEMPLATE_PATH, "r", encoding="utf-8") as f:
             return f.read()
     return "<h1>Literacy Assistance Backend UI Portal</h1>"
+
