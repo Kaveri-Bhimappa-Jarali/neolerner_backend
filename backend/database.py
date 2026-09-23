@@ -92,8 +92,17 @@ def ensure_tables_created():
         with _db_lock:
             if not _tables_initialized:
                 try:
-                    import models
-                    from seed_data import seed_initial_database
+                    backend_dir = os.path.dirname(os.path.abspath(__file__))
+                    if backend_dir not in sys.path:
+                        sys.path.insert(0, backend_dir)
+                    try:
+                        import models
+                    except ImportError:
+                        from . import models
+                    try:
+                        from seed_data import seed_initial_database
+                    except ImportError:
+                        from .seed_data import seed_initial_database
                     from sqlalchemy import text
                     models.Base.metadata.create_all(bind=engine)
 
