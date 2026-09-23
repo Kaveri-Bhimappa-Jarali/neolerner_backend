@@ -69,6 +69,9 @@ app.add_middleware(
 
 @app.middleware("http")
 async def fix_vercel_path_middleware(request, call_next):
+    if request.method == "OPTIONS":
+        return await call_next(request)
+
     path = request.url.path
 
     # Clean up /api/index.py prefix added by Vercel rewrites
@@ -88,6 +91,7 @@ async def fix_vercel_path_middleware(request, call_next):
 
     request.scope["path"] = path
     return await call_next(request)
+
 
 
 @app.get("/health")

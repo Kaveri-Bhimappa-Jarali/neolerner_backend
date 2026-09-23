@@ -235,4 +235,10 @@ def resend_code(req: schemas.ResendCodeRequest, db: Session = Depends(database.g
     return {"status": "success", "message": "New verification code sent to your email!"}
 
 
+@router.options("/{full_path:path}")
+def options_auth_fallback(full_path: str):
+    return {"status": "ok"}
+
+
+
 
