@@ -9,7 +9,6 @@ description = "NeoLearner Intelligent Literacy & Language Assistance Platform AP
 requires-python = ">=3.10"
 dependencies = [
     "fastapi>=0.100.0",
-    "uvicorn>=0.22.0",
     "sqlalchemy>=2.0.0",
     "pyjwt>=2.8.0",
     "pydantic>=2.0.0",
@@ -17,8 +16,7 @@ dependencies = [
     "pydantic-settings>=2.0.0",
     "python-dotenv>=1.0.0",
     "python-multipart>=0.0.6",
-    "httpx>=0.24.0",
-    "bcrypt>=4.0.0"
+    "httpx>=0.24.0"
 ]
 
 [tool.setuptools.packages.find]
