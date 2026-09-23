@@ -1,8 +1,0 @@
-.pytest_cache/
-.mypy_cache/
-*.db
-*.db-wal
-*.db-shm
-tests/
-__pycache__/
-*.pyc
