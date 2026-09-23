@@ -101,6 +101,7 @@ class LearnerResponse(LearnerBase):
     id: UUID
     created_at: datetime
     updated_at: datetime
+    verification_code: Optional[str] = None
     preferred_language: Optional[LanguageResponse] = None
     target_language: Optional[LanguageResponse] = None
 
