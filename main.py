@@ -46,7 +46,7 @@ from routers import (
 )
 from seed_data import seed_initial_database
 
-app = FastAPI(title="Literacy Assistance API & Backend Portal")
+app = FastAPI(title="Literacy Assistance API & Backend Portal", redirect_slashes=False)
 
 # Configure CORS for frontend access
 app.add_middleware(
@@ -61,11 +61,16 @@ app.add_middleware(
         "https://neolearner-backend1.vercel.app",
         "https://neolearner-backend1-git-main-kaverijarali22-3383s-projects.vercel.app"
     ],
-    allow_origin_regex=r"https://.*\.vercel\.app",
+    allow_origin_regex=r".*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.options("/{path:path}")
+def global_options_preflight_handler(path: str):
+    return {"status": "ok"}
+
 
 @app.middleware("http")
 async def fix_vercel_path_middleware(request, call_next):
