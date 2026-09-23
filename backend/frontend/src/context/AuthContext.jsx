@@ -45,8 +45,34 @@ export const AuthProvider = ({ children }) => {
       ...userData,
       email: userData.email.trim().toLowerCase()
     };
-    await api.post('/auth/register', normalizedUserData);
-    await login(normalizedUserData.email, normalizedUserData.password);
+    return await api.post('/auth/register', normalizedUserData);
+  };
+
+  const googleLogin = async (googlePayload) => {
+    const res = await api.post('/auth/google', googlePayload);
+    const token = res.data.access_token;
+    localStorage.setItem('access_token', token);
+    const userRes = await api.get('/learners/me', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    setUser(userRes.data);
+    return { user: userRes.data, needsOnboarding: res.data.needs_onboarding };
+  };
+
+  const verifyEmail = async (email, code, password = '') => {
+    const res = await api.post('/auth/verify-email', { email, code });
+    if (password) {
+      try {
+        await login(email, password);
+      } catch (e) {
+        console.warn('Auto-login after email verification failed:', e);
+      }
+    }
+    return res;
+  };
+
+  const resendCode = async (email) => {
+    return await api.post('/auth/resend-code', { email });
   };
 
   const logout = () => {
@@ -55,7 +81,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, loading, setUser }}>
+    <AuthContext.Provider value={{ user, login, register, googleLogin, verifyEmail, resendCode, logout, loading, setUser }}>
       {children}
     </AuthContext.Provider>
   );
