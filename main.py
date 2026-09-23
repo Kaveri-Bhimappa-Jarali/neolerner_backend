@@ -74,15 +74,21 @@ async def fix_vercel_path_middleware(request, call_next):
 
     path = request.url.path
 
-    # Clean up /api/index.py prefix added by Vercel rewrites
+    # Check Vercel headers for real requested URI
+    forwarded_uri = request.headers.get("x-forwarded-uri") or request.headers.get("x-matched-path")
+    if forwarded_uri:
+        forwarded_path = forwarded_uri.split("?")[0]
+        if forwarded_path and forwarded_path not in ("/", "/api", "/api/"):
+            path = forwarded_path
+
+    # Clean up /api/index.py prefix if present
     if path.startswith("/api/index.py"):
         sub_path = path[len("/api/index.py"):]
-        if not sub_path or sub_path in ("/", "/api", "/api/"):
-            path = "/api/health"
-        elif sub_path.startswith("/api/"):
-            path = sub_path
-        else:
-            path = "/api" + (sub_path if sub_path.startswith("/") else "/" + sub_path)
+        if sub_path and sub_path not in ("/", "/api", "/api/"):
+            if sub_path.startswith("/api/"):
+                path = sub_path
+            else:
+                path = "/api" + (sub_path if sub_path.startswith("/") else "/" + sub_path)
 
     if path in ("/", "/api", "/api/"):
         path = "/api/health"
@@ -91,6 +97,7 @@ async def fix_vercel_path_middleware(request, call_next):
 
     request.scope["path"] = path
     return await call_next(request)
+
 
 
 
