@@ -99,6 +99,8 @@ def register(learner: schemas.LearnerCreate, db: Session = Depends(database.get_
 
 @router.post("/login", response_model=schemas.Token)
 @router.post("/login/", response_model=schemas.Token)
+@router.post("/token", response_model=schemas.Token)
+@router.post("/token/", response_model=schemas.Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(database.get_db)):
     try:
         normalized_email = form_data.username.strip().lower()
