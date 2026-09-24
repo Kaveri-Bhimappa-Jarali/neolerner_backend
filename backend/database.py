@@ -15,22 +15,13 @@ ORIGINAL_DB_PATH = os.path.join(BASE_DIR, "literacy.db")
 
 def is_readonly_env():
     """Detect Vercel, AWS Lambda, or any read-only filesystem environment."""
-    if (
+    return (
         os.getenv("VERCEL") in ("1", "true", "True", "yes")
         or "VERCEL" in os.environ
         or "VERCEL_ENV" in os.environ
         or "AWS_LAMBDA_FUNCTION_NAME" in os.environ
         or "LAMBDA_TASK_ROOT" in os.environ
-    ):
-        return True
-    try:
-        test_file = os.path.join(BASE_DIR, ".write_test")
-        with open(test_file, "w") as f:
-            f.write("test")
-        os.remove(test_file)
-        return False
-    except (IOError, OSError, PermissionError):
-        return True
+    )
 
 IS_SERVERLESS_OR_READONLY = is_readonly_env()
 
