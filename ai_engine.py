@@ -798,12 +798,14 @@ def generate_placement_test_session(
         pref_lang = db.query(models.Language).filter(models.Language.id == learner.preferred_language_id).first()
     if not pref_lang:
         pref_lang = db.query(models.Language).filter(models.Language.code == "en").first()
+        if not pref_lang:
+            pref_lang = db.query(models.Language).first()
 
-    target_lang_id = target_lang.id
-    target_lang_code = target_lang.code
-    target_lang_name = target_lang.name
+    target_lang_id = target_lang.id if target_lang else uuid.uuid4()
+    target_lang_code = target_lang.code if target_lang else (learner.target_language_code or "kn")
+    target_lang_name = target_lang.name if target_lang else "Kannada"
     pref_lang_name = pref_lang.name if pref_lang else "English"
-    pref_lang_code = pref_lang.code if pref_lang else "en"
+    pref_lang_code = pref_lang.code if pref_lang else (learner.preferred_language_code or "en")
 
     # Language-specific question prompt templates
     first_vowel_data = {
