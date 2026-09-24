@@ -4,7 +4,7 @@ try:
     from pydantic import EmailStr
 except ImportError:
     EmailStr = str
-from typing import Optional, List, Any
+from typing import Optional, List, Any, Union
 from uuid import UUID
 from datetime import datetime
 from models import (
@@ -635,11 +635,12 @@ class ConversationStartResponse(BaseModel):
     expected_phrases: List[str] = []
 
 class ConversationRespondRequest(BaseModel):
-    session_id: UUID
+    session_id: Optional[Union[UUID, str]] = None
     user_transcript: str
 
 class ConversationRespondResponse(BaseModel):
     session_id: UUID
+    target_language_code: Optional[str] = "kn"
     ai_reply: str
     ai_audio_text: str
     phonetic: Optional[str] = None

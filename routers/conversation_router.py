@@ -465,6 +465,7 @@ def respond_conversation(
 
     return schemas.ConversationRespondResponse(
         session_id=session.id,
+        target_language_code=lang_code,
         ai_reply=next_reply[0],
         ai_audio_text=next_reply[0],
         phonetic=next_reply[1],
