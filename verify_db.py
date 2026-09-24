@@ -5,22 +5,25 @@ import os
 # Adjust sys.path for backend imports
 sys.path.append(os.path.dirname(__file__))
 
-from database import SessionLocal, engine
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 from models import (
     Base, Language, Learner, Course, Topic, Lesson,
     Assessment, Question, Answer, AssessmentResult, LearningProgress, Recommendation,
     ProficiencyLevel, CourseLevel, ProgressStatus, AssessmentType, QuestionType
 )
 
+test_engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+TestSession = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
+
 def run_verification():
-    print("=== Starting Database Entity Verification ===")
+    print("=== Starting Database Entity Verification (Isolated In-Memory Test) ===")
     
-    # 1. Ensure tables can be created
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
+    # 1. Ensure tables can be created on in-memory engine
+    Base.metadata.create_all(bind=test_engine)
     print("[OK] 1. Tables created successfully.")
 
-    db = SessionLocal()
+    db = TestSession()
     try:
         # 2. Test Language
         lang_en = Language(id=uuid.uuid4(), name="English", code="en", native_name="English")
