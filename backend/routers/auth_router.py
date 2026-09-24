@@ -77,7 +77,7 @@ def register(learner: schemas.LearnerCreate, db: Session = Depends(database.get_
             prior_knowledge=learner.prior_knowledge or "complete_beginner",
             cefr_level=learner.cefr_level or "A0",
             daily_minutes_goal=learner.daily_minutes_goal or 15,
-            is_verified=False,
+            is_verified=True,
             verification_code=verification_code
         )
         db.add(new_learner)
