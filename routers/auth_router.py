@@ -84,12 +84,14 @@ def register(learner: schemas.LearnerCreate, db: Session = Depends(database.get_
         db.commit()
         db.refresh(new_learner)
 
-        # Dispatch real 6-digit verification code email
+        # Dispatch real 6-digit verification code email to target user email address
         try:
             send_verification_email(normalized_email, verification_code, new_learner.full_name)
         except Exception as mail_err:
             print(f"[WARN] Failed to send verification email: {mail_err}")
 
+        # Mask verification_code in response so it is NEVER exposed on client device
+        new_learner.verification_code = None
         return new_learner
     except HTTPException:
         raise
