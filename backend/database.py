@@ -15,22 +15,15 @@ ORIGINAL_DB_PATH = os.path.join(BASE_DIR, "literacy.db")
 
 def is_readonly_env():
     """Detect Vercel, AWS Lambda, or any read-only filesystem environment."""
-    if (
+    if os.name == 'nt':
+        return False
+    return (
         os.getenv("VERCEL") in ("1", "true", "True", "yes")
         or "VERCEL" in os.environ
         or "VERCEL_ENV" in os.environ
         or "AWS_LAMBDA_FUNCTION_NAME" in os.environ
         or "LAMBDA_TASK_ROOT" in os.environ
-    ):
-        return True
-    try:
-        test_file = os.path.join(BASE_DIR, ".write_test")
-        with open(test_file, "w") as f:
-            f.write("test")
-        os.remove(test_file)
-        return False
-    except (IOError, OSError, PermissionError):
-        return True
+    )
 
 IS_SERVERLESS_OR_READONLY = is_readonly_env()
 
@@ -46,7 +39,9 @@ if IS_SERVERLESS_OR_READONLY and not os.getenv("DATABASE_URL"):
 else:
     DB_PATH = ORIGINAL_DB_PATH
 
-SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DB_PATH}")
+# Normalize path for cross-platform SQLite URI format
+normalized_db_path = os.path.abspath(DB_PATH).replace("\\", "/")
+SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{normalized_db_path}")
 
 # Standardize postgres scheme for SQLAlchemy 1.4/2.0 compatibility
 if SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
@@ -107,17 +102,38 @@ def ensure_tables_created():
                     from sqlalchemy import text
                     models.Base.metadata.create_all(bind=engine)
 
-                    # Ensure new columns exist on learners table if created from older schema
+                    # Ensure new columns exist on learners and assessment_results tables if created from older schema
                     try:
                         with engine.connect() as conn:
                             for col_name, col_type in [
                                 ("is_verified", "BOOLEAN DEFAULT 0"),
                                 ("verification_code", "VARCHAR"),
                                 ("google_id", "VARCHAR"),
-                                ("avatar_url", "VARCHAR")
+                                ("avatar_url", "VARCHAR"),
+                                ("has_completed_placement_test", "BOOLEAN DEFAULT 0"),
+                                ("placement_score", "FLOAT"),
+                                ("proficiency_level", "VARCHAR DEFAULT 'Beginner'"),
+                                ("predicted_proficiency_score", "FLOAT DEFAULT 0.0"),
+                                ("benchmark_level", "VARCHAR DEFAULT 'Emergent Reader'"),
+                                ("cefr_level", "VARCHAR DEFAULT 'A0'"),
+                                ("learning_goal", "VARCHAR DEFAULT 'conversation'"),
+                                ("prior_knowledge", "VARCHAR DEFAULT 'complete_beginner'"),
+                                ("daily_minutes_goal", "INTEGER DEFAULT 15")
                             ]:
                                 try:
                                     conn.execute(text(f"ALTER TABLE learners ADD COLUMN {col_name} {col_type}"))
+                                    conn.commit()
+                                except Exception:
+                                    pass
+
+                            for col_name, col_type in [
+                                ("cefr_level", "VARCHAR"),
+                                ("skill_breakdown", "TEXT"),
+                                ("strengths", "TEXT"),
+                                ("weak_areas", "TEXT")
+                            ]:
+                                try:
+                                    conn.execute(text(f"ALTER TABLE assessment_results ADD COLUMN {col_name} {col_type}"))
                                     conn.commit()
                                 except Exception:
                                     pass

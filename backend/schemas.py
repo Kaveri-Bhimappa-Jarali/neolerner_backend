@@ -136,6 +136,10 @@ class VerifyEmailRequest(BaseModel):
 class ResendCodeRequest(BaseModel):
     email: EmailStr
 
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    new_password: str
+
 
 
 # --- Answer Schemas ---

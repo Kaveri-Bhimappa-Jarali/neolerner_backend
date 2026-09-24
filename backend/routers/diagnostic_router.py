@@ -7,6 +7,7 @@ import schemas, models, database, dependencies, ai_engine
 router = APIRouter(prefix="/api/diagnostic", tags=["diagnostic_placement"])
 
 @router.get("/status")
+@router.get("/status/")
 def get_diagnostic_status(
     current_learner: models.Learner = Depends(dependencies.get_current_learner),
     db: Session = Depends(database.get_db)
@@ -51,6 +52,7 @@ def get_diagnostic_status(
 
 
 @router.post("/session", response_model=schemas.PlacementTestSessionResponse)
+@router.post("/session/", response_model=schemas.PlacementTestSessionResponse)
 def create_placement_session(
     current_learner: models.Learner = Depends(dependencies.get_current_learner),
     db: Session = Depends(database.get_db)
@@ -62,6 +64,9 @@ def create_placement_session(
     try:
         return ai_engine.generate_placement_test_session(current_learner.id, db)
     except Exception as e:
+        print(f"[ERROR /api/diagnostic/session]: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate placement test session: {str(e)}"
@@ -69,6 +74,7 @@ def create_placement_session(
 
 
 @router.post("/submit", response_model=schemas.PlacementTestResultResponse)
+@router.post("/submit/", response_model=schemas.PlacementTestResultResponse)
 def submit_placement_test(
     submission: schemas.PlacementTestSubmit,
     current_learner: models.Learner = Depends(dependencies.get_current_learner),
@@ -82,6 +88,9 @@ def submit_placement_test(
     try:
         return ai_engine.evaluate_placement_test(current_learner.id, submission, db)
     except Exception as e:
+        print(f"[ERROR /api/diagnostic/submit]: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to evaluate placement test: {str(e)}"
