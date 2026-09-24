@@ -270,6 +270,7 @@ SCENARIOS = {
 }
 
 @router.get("/scenarios", response_model=List[schemas.ConversationScenarioItem])
+@router.get("/scenarios/", response_model=List[schemas.ConversationScenarioItem])
 def get_conversation_scenarios():
     items = []
     for k, v in SCENARIOS.items():
@@ -284,6 +285,7 @@ def get_conversation_scenarios():
     return items
 
 @router.post("/start", response_model=schemas.ConversationStartResponse)
+@router.post("/start/", response_model=schemas.ConversationStartResponse)
 def start_conversation(
     req: schemas.ConversationStartRequest,
     current_learner: models.Learner = Depends(dependencies.get_current_learner),
@@ -339,6 +341,7 @@ def start_conversation(
     )
 
 @router.post("/respond", response_model=schemas.ConversationRespondResponse)
+@router.post("/respond/", response_model=schemas.ConversationRespondResponse)
 def respond_conversation(
     req: schemas.ConversationRespondRequest,
     current_learner: models.Learner = Depends(dependencies.get_current_learner),
@@ -440,6 +443,7 @@ def respond_conversation(
     )
 
 @router.post("/end", response_model=schemas.ConversationEndResponse)
+@router.post("/end/", response_model=schemas.ConversationEndResponse)
 def end_conversation(
     req: schemas.ConversationEndRequest,
     current_learner: models.Learner = Depends(dependencies.get_current_learner),
