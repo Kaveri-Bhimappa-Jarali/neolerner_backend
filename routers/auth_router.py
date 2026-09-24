@@ -114,9 +114,13 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
         if not auth.verify_password(form_data.password, learner.hashed_password):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Incorrect password",
+                detail="Incorrect password. If you forgot your password or signed up via Google, click Reset Password below.",
                 headers={"WWW-Authenticate": "Bearer"},
             )
+        
+        if not learner.is_verified:
+            learner.is_verified = True
+            db.commit()
         
         access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = auth.create_access_token(
@@ -127,13 +131,56 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
             "access_token": access_token,
             "token_type": "bearer",
             "needs_onboarding": needs_onboarding,
-            "is_verified": bool(learner.is_verified or learner.is_admin)
+            "is_verified": True
         }
     except HTTPException:
         raise
     except Exception as e:
         print(f"[ERROR /api/auth/login]: {e}")
         raise HTTPException(status_code=400, detail=f"Login failed: {str(e)}")
+
+@router.post("/reset-password", response_model=schemas.Token)
+@router.post("/reset-password/", response_model=schemas.Token)
+def reset_password(req: schemas.ResetPasswordRequest, db: Session = Depends(database.get_db)):
+    try:
+        normalized_email = req.email.strip().lower()
+        learner = db.query(models.Learner).filter(
+            func.lower(func.trim(models.Learner.email)) == normalized_email
+        ).first()
+        if not learner:
+            raise HTTPException(
+                status_code=404,
+                detail="No account found for this email address. Please register first."
+            )
+        
+        if len(req.new_password) < 6:
+            raise HTTPException(
+                status_code=400,
+                detail="New password must be at least 6 characters long."
+            )
+        
+        learner.hashed_password = auth.get_password_hash(req.new_password)
+        learner.is_verified = True
+        db.commit()
+        db.refresh(learner)
+
+        access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = auth.create_access_token(
+            data={"sub": learner.email}, expires_delta=access_token_expires
+        )
+        needs_onboarding = not learner.preferred_language_id or not learner.target_language_id
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "needs_onboarding": needs_onboarding,
+            "is_verified": True
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"[ERROR /api/auth/reset-password]: {e}")
+        raise HTTPException(status_code=400, detail=f"Password reset failed: {str(e)}")
 
 @router.post("/google", response_model=schemas.Token)
 @router.post("/google/", response_model=schemas.Token)
