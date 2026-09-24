@@ -15,6 +15,8 @@ ORIGINAL_DB_PATH = os.path.join(BASE_DIR, "literacy.db")
 
 def is_readonly_env():
     """Detect Vercel, AWS Lambda, or any read-only filesystem environment."""
+    if os.name == 'nt':
+        return False
     return (
         os.getenv("VERCEL") in ("1", "true", "True", "yes")
         or "VERCEL" in os.environ
@@ -37,7 +39,9 @@ if IS_SERVERLESS_OR_READONLY and not os.getenv("DATABASE_URL"):
 else:
     DB_PATH = ORIGINAL_DB_PATH
 
-SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DB_PATH}")
+# Normalize path for cross-platform SQLite URI format
+normalized_db_path = os.path.abspath(DB_PATH).replace("\\", "/")
+SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{normalized_db_path}")
 
 # Standardize postgres scheme for SQLAlchemy 1.4/2.0 compatibility
 if SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
