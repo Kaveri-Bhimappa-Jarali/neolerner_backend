@@ -77,12 +77,17 @@ def register(learner: schemas.LearnerCreate, db: Session = Depends(database.get_
             prior_knowledge=learner.prior_knowledge or "complete_beginner",
             cefr_level=learner.cefr_level or "A0",
             daily_minutes_goal=learner.daily_minutes_goal or 15,
-            is_verified=True,
-            verification_code=None
+            is_verified=False,
+            verification_code=verification_code
         )
         db.add(new_learner)
         db.commit()
         db.refresh(new_learner)
+
+        try:
+            send_verification_email(normalized_email, verification_code, learner.full_name)
+        except Exception as e:
+            print(f"[WARN /api/auth/register] Email dispatch failed: {e}")
 
         return new_learner
     except HTTPException:
@@ -229,7 +234,11 @@ def resend_code(req: schemas.ResendCodeRequest, db: Session = Depends(database.g
     # Dispatch real 6-digit verification code email
     send_verification_email(normalized_email, new_code, learner.full_name)
 
-    return {"status": "success", "message": "New verification code sent to your email!"}
+    return {
+        "status": "success",
+        "message": "New verification code sent to your email!",
+        "verification_code": new_code
+    }
 
 
 
