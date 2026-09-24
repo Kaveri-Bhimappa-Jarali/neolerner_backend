@@ -77,12 +77,18 @@ def register(learner: schemas.LearnerCreate, db: Session = Depends(database.get_
             prior_knowledge=learner.prior_knowledge or "complete_beginner",
             cefr_level=learner.cefr_level or "A0",
             daily_minutes_goal=learner.daily_minutes_goal or 15,
-            is_verified=True,
-            verification_code=None
+            is_verified=False,
+            verification_code=verification_code
         )
         db.add(new_learner)
         db.commit()
         db.refresh(new_learner)
+
+        # Dispatch real 6-digit verification code email
+        try:
+            send_verification_email(normalized_email, verification_code, new_learner.full_name)
+        except Exception as mail_err:
+            print(f"[WARN] Failed to send verification email: {mail_err}")
 
         return new_learner
     except HTTPException:
