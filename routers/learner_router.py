@@ -23,58 +23,38 @@ def update_user_me(
 ):
     gamification.recharge_hearts_by_time(current_learner, db)
     
-    if "full_name" in learner_update.model_fields_set:
-        current_learner.full_name = learner_update.full_name
-    if "age" in learner_update.model_fields_set:
+    if "full_name" in learner_update.model_fields_set and learner_update.full_name and learner_update.full_name.strip():
+        current_learner.full_name = learner_update.full_name.strip()
+    if "age" in learner_update.model_fields_set and learner_update.age is not None:
         current_learner.age = learner_update.age
-    if "preferred_language_id" in learner_update.model_fields_set:
+    if "preferred_language_id" in learner_update.model_fields_set and learner_update.preferred_language_id is not None:
         current_learner.preferred_language_id = learner_update.preferred_language_id
-    if "target_language_id" in learner_update.model_fields_set:
+    if "target_language_id" in learner_update.model_fields_set and learner_update.target_language_id is not None:
         current_learner.target_language_id = learner_update.target_language_id
     if "preferred_language_code" in learner_update.model_fields_set and learner_update.preferred_language_code:
-        p_lang = db.query(models.Language).filter(models.Language.code == learner_update.preferred_language_code.lower()).first()
+        from sqlalchemy import func
+        p_lang = db.query(models.Language).filter(func.lower(models.Language.code) == learner_update.preferred_language_code.lower()).first()
         if p_lang:
             current_learner.preferred_language_id = p_lang.id
     if "target_language_code" in learner_update.model_fields_set and learner_update.target_language_code:
-        t_lang = db.query(models.Language).filter(models.Language.code == learner_update.target_language_code.lower()).first()
+        from sqlalchemy import func
+        t_lang = db.query(models.Language).filter(func.lower(models.Language.code) == learner_update.target_language_code.lower()).first()
         if t_lang:
             current_learner.target_language_id = t_lang.id
-    if "proficiency_level" in learner_update.model_fields_set:
+    if "proficiency_level" in learner_update.model_fields_set and learner_update.proficiency_level is not None:
         current_learner.proficiency_level = learner_update.proficiency_level
-    if "learning_goal" in learner_update.model_fields_set:
+    if "learning_goal" in learner_update.model_fields_set and learner_update.learning_goal is not None:
         current_learner.learning_goal = learner_update.learning_goal
-    if "prior_knowledge" in learner_update.model_fields_set:
+    if "prior_knowledge" in learner_update.model_fields_set and learner_update.prior_knowledge is not None:
         current_learner.prior_knowledge = learner_update.prior_knowledge
-    if "cefr_level" in learner_update.model_fields_set:
+    if "cefr_level" in learner_update.model_fields_set and learner_update.cefr_level is not None:
         current_learner.cefr_level = learner_update.cefr_level
-    if "daily_minutes_goal" in learner_update.model_fields_set:
+    if "daily_minutes_goal" in learner_update.model_fields_set and learner_update.daily_minutes_goal is not None:
         current_learner.daily_minutes_goal = learner_update.daily_minutes_goal
-    if "has_completed_placement_test" in learner_update.model_fields_set:
+    if "has_completed_placement_test" in learner_update.model_fields_set and learner_update.has_completed_placement_test is not None:
         current_learner.has_completed_placement_test = learner_update.has_completed_placement_test
-    if "placement_score" in learner_update.model_fields_set:
+    if "placement_score" in learner_update.model_fields_set and learner_update.placement_score is not None:
         current_learner.placement_score = learner_update.placement_score
-    if "xp" in learner_update.model_fields_set:
-        current_learner.xp = learner_update.xp
-    if "gems" in learner_update.model_fields_set:
-        current_learner.gems = learner_update.gems
-    if "hearts" in learner_update.model_fields_set:
-        current_learner.hearts = learner_update.hearts
-    if "streak" in learner_update.model_fields_set:
-        current_learner.streak = learner_update.streak
-    if "last_active_date" in learner_update.model_fields_set:
-        current_learner.last_active_date = learner_update.last_active_date
-    if "streak_freeze_count" in learner_update.model_fields_set:
-        current_learner.streak_freeze_count = learner_update.streak_freeze_count
-    if "double_or_nothing_active" in learner_update.model_fields_set:
-        current_learner.double_or_nothing_active = learner_update.double_or_nothing_active
-    if "double_or_nothing_streak" in learner_update.model_fields_set:
-        current_learner.double_or_nothing_streak = learner_update.double_or_nothing_streak
-    if "daily_xp_goal" in learner_update.model_fields_set:
-        current_learner.daily_xp_goal = learner_update.daily_xp_goal
-    if "daily_xp_earned" in learner_update.model_fields_set:
-        current_learner.daily_xp_earned = learner_update.daily_xp_earned
-    if "last_goal_completed_date" in learner_update.model_fields_set:
-        current_learner.last_goal_completed_date = learner_update.last_goal_completed_date
 
     db.commit()
     db.refresh(current_learner)
