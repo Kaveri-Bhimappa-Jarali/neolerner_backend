@@ -29,7 +29,6 @@ IS_SERVERLESS_OR_READONLY = is_readonly_env()
 
 if IS_SERVERLESS_OR_READONLY and not os.getenv("DATABASE_URL"):
     print("[CRITICAL PERSISTENCE WARNING] Running in serverless environment without persistent DATABASE_URL environment variable.")
-    print("[CRITICAL PERSISTENCE WARNING] Ephemeral /tmp database will reset on cold starts. Set DATABASE_URL (e.g., PostgreSQL on Supabase/Neon/Render) for serverless persistence.")
     TMP_DB_PATH = "/tmp/literacy.db"
     if not os.path.exists(TMP_DB_PATH) and os.path.exists(ORIGINAL_DB_PATH):
         try:
@@ -49,9 +48,17 @@ SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{normalized_db_p
 if SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
     SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-# Ensure PostgreSQL driver compatibility for serverless runtimes (force pg8000 pure Python driver)
+# Ensure PostgreSQL driver compatibility for serverless runtimes with robust fallback
 if SQLALCHEMY_DATABASE_URL.startswith("postgresql://") and "+" not in SQLALCHEMY_DATABASE_URL.split("://")[0]:
-    SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgresql://", "postgresql+pg8000://", 1)
+    try:
+        import pg8000
+        SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgresql://", "postgresql+pg8000://", 1)
+    except ImportError:
+        try:
+            import psycopg2
+            SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
+        except ImportError:
+            pass
 
 
 # Configure connection parameters for SQLite vs PostgreSQL
@@ -62,11 +69,14 @@ connect_args = {}
 if is_sqlite:
     connect_args = {"check_same_thread": False, "timeout": 30}
 elif is_pg8000:
-    import ssl
-    ssl_ctx = ssl.create_default_context()
-    ssl_ctx.check_hostname = False
-    ssl_ctx.verify_mode = ssl.CERT_NONE
-    connect_args = {"ssl_context": ssl_ctx}
+    try:
+        import ssl
+        ssl_ctx = ssl.create_default_context()
+        ssl_ctx.check_hostname = False
+        ssl_ctx.verify_mode = ssl.CERT_NONE
+        connect_args = {"ssl_context": ssl_ctx}
+    except Exception:
+        connect_args = {}
 
 engine_kwargs = {
     "connect_args": connect_args,
@@ -81,10 +91,17 @@ if not is_sqlite:
         "pool_timeout": 30,
     })
 
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
-    **engine_kwargs
-)
+try:
+    engine = create_engine(
+        SQLALCHEMY_DATABASE_URL,
+        **engine_kwargs
+    )
+except Exception as e:
+    print(f"[WARN] Primary database engine creation failed ({e}). Falling back to SQLite.")
+    engine = create_engine(
+        f"sqlite:////tmp/literacy.db",
+        connect_args={"check_same_thread": False, "timeout": 30}
+    )
 
 # Configure SQLite PRAGMAs for concurrent execution and performance
 if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
@@ -106,7 +123,6 @@ if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
                 cursor.close()
             except Exception:
                 pass
-
 
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

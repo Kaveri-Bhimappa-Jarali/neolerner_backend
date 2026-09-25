@@ -9,7 +9,7 @@ router = APIRouter(prefix="/api/diagnostic", tags=["diagnostic_placement"])
 @router.get("/status")
 @router.get("/status/")
 def get_diagnostic_status(
-    current_learner: models.Learner = Depends(dependencies.get_current_learner),
+    current_learner: models.Learner = Depends(dependencies.get_current_learner_or_fallback),
     db: Session = Depends(database.get_db)
 ):
     """
@@ -54,7 +54,7 @@ def get_diagnostic_status(
 @router.post("/session", response_model=schemas.PlacementTestSessionResponse)
 @router.post("/session/", response_model=schemas.PlacementTestSessionResponse)
 def create_placement_session(
-    current_learner: models.Learner = Depends(dependencies.get_current_learner),
+    current_learner: models.Learner = Depends(dependencies.get_current_learner_or_fallback),
     db: Session = Depends(database.get_db)
 ):
     """
@@ -77,7 +77,7 @@ def create_placement_session(
 @router.post("/submit/", response_model=schemas.PlacementTestResultResponse)
 def submit_placement_test(
     submission: schemas.PlacementTestSubmit,
-    current_learner: models.Learner = Depends(dependencies.get_current_learner),
+    current_learner: models.Learner = Depends(dependencies.get_current_learner_or_fallback),
     db: Session = Depends(database.get_db)
 ):
     """

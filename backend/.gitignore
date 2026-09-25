@@ -1,3 +1,6 @@
+.env
+.env.*
+!.env.example
 __pycache__/
 *.pyc
 *.pyo
@@ -8,6 +11,8 @@ env/
 venv/
 *.sqlite3
 *.db
+*.db-shm
+*.db-wal
 .pytest_cache/
 .mypy_cache/
 .coverage
