@@ -69,6 +69,16 @@ app.add_middleware(
 async def fix_vercel_path_middleware(request, call_next):
     path = request.url.path
 
+    # Extract original URI if Vercel forwards request to index.py without subpath appended
+    if path in ("/api/index.py", "/index.py", "/api/index.py/", "/index.py/"):
+        forwarded_uri = (
+            request.headers.get("x-forwarded-uri")
+            or request.headers.get("x-matched-path")
+            or request.query_params.get("path")
+        )
+        if forwarded_uri and forwarded_uri not in ("/api/index.py", "/index.py", "/"):
+            path = forwarded_uri
+
     # Clean up /api/index.py or /index.py prefix if present
     if path.startswith("/api/index.py"):
         sub_path = path[len("/api/index.py"):]
