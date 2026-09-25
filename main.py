@@ -1,4 +1,11 @@
 import os
+import sys
+
+# Ensure backend directory is in sys.path for direct uvicorn execution from root or backend directory
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
+
 from fastapi import FastAPI, Depends
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -41,13 +48,17 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
+        "http://localhost:5174",
         "http://localhost:3000",
+        "http://localhost:4173",
         "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
         "http://127.0.0.1:3000",
+        "http://127.0.0.1:4173",
         "https://neolearner-frontend.vercel.app",
         "https://neolearner-frontend-git-main-kaverijarali22-3383s-projects.vercel.app"
     ],
-    allow_origin_regex=r"https://.*\.vercel\.app",
+    allow_origin_regex=r"https?://.*(vercel\.app|render\.com|localhost|127\.0\.0\.1).*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
