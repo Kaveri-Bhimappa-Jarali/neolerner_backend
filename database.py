@@ -28,11 +28,13 @@ def is_readonly_env():
 IS_SERVERLESS_OR_READONLY = is_readonly_env()
 
 if IS_SERVERLESS_OR_READONLY and not os.getenv("DATABASE_URL"):
+    print("[CRITICAL PERSISTENCE WARNING] Running in serverless environment without persistent DATABASE_URL environment variable.")
+    print("[CRITICAL PERSISTENCE WARNING] Ephemeral /tmp database will reset on cold starts. Set DATABASE_URL (e.g., PostgreSQL on Supabase/Neon/Render) for serverless persistence.")
     TMP_DB_PATH = "/tmp/literacy.db"
     if not os.path.exists(TMP_DB_PATH) and os.path.exists(ORIGINAL_DB_PATH):
         try:
             shutil.copy2(ORIGINAL_DB_PATH, TMP_DB_PATH)
-            print(f"[INFO] Copied seed database to {TMP_DB_PATH}")
+            print(f"[INFO] Initialized temporary database copy at {TMP_DB_PATH}")
         except Exception as e:
             print(f"[WARN] Failed to copy literacy.db to /tmp: {e}")
     DB_PATH = TMP_DB_PATH
@@ -50,7 +52,12 @@ if SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
 # Configure timeout for SQLite connections to avoid database locked errors
 connect_args = {"check_same_thread": False, "timeout": 30} if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else {}
 
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args=connect_args)
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL,
+    connect_args=connect_args,
+    pool_pre_ping=True,
+    pool_recycle=300 if not SQLALCHEMY_DATABASE_URL.startswith("sqlite") else -1
+)
 
 # Configure SQLite PRAGMAs for concurrent execution and performance
 if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
