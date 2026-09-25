@@ -10,7 +10,13 @@ if backend_dir not in sys.path:
 if root_dir not in sys.path:
     sys.path.insert(0, root_dir)
 
-# Re-export FastAPI app from backend.main for unified entrypoint
-from backend.main import app
+try:
+    from backend.main import app
+except ImportError:
+    try:
+        from main import app
+    except ImportError:
+        import main
+        app = main.app
 
 __all__ = ["app"]
