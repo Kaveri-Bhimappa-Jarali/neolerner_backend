@@ -52,21 +52,31 @@ if SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
 # Ensure PostgreSQL driver compatibility for serverless runtimes
 if SQLALCHEMY_DATABASE_URL.startswith("postgresql://") and "+" not in SQLALCHEMY_DATABASE_URL.split("://")[0]:
     try:
-        import psycopg2
-    except ImportError:
+        import pg8000
+        SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgresql://", "postgresql+pg8000://", 1)
+    except Exception:
         try:
-            import psycopg
-            SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
-        except ImportError:
+            import psycopg2
+        except Exception:
             try:
-                import pg8000
-                SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgresql://", "postgresql+pg8000://", 1)
-            except ImportError:
+                import psycopg
+                SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
+            except Exception:
                 pass
 
-# Configure timeout for SQLite connections to avoid database locked errors
+# Configure connection parameters for SQLite vs PostgreSQL
 is_sqlite = SQLALCHEMY_DATABASE_URL.startswith("sqlite")
-connect_args = {"check_same_thread": False, "timeout": 30} if is_sqlite else {}
+is_pg8000 = "pg8000" in SQLALCHEMY_DATABASE_URL
+
+connect_args = {}
+if is_sqlite:
+    connect_args = {"check_same_thread": False, "timeout": 30}
+elif is_pg8000:
+    import ssl
+    ssl_ctx = ssl.create_default_context()
+    ssl_ctx.check_hostname = False
+    ssl_ctx.verify_mode = ssl.CERT_NONE
+    connect_args = {"ssl_context": ssl_ctx}
 
 engine_kwargs = {
     "connect_args": connect_args,
