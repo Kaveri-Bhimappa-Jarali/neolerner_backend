@@ -28,13 +28,18 @@ def is_readonly_env():
 IS_SERVERLESS_OR_READONLY = is_readonly_env()
 
 if IS_SERVERLESS_OR_READONLY and not os.getenv("DATABASE_URL"):
-    raise RuntimeError(
-        "CRITICAL PRODUCTION CONFIGURATION ERROR: DATABASE_URL environment variable is missing in serverless/production environment. "
-        "Ephemeral database storage (/tmp) is prohibited to prevent data loss. "
-        "Please configure DATABASE_URL to point to a persistent database (e.g. PostgreSQL on Supabase, Neon, or Render)."
-    )
-
-DB_PATH = ORIGINAL_DB_PATH
+    print("[CRITICAL PERSISTENCE WARNING] Running in serverless environment without persistent DATABASE_URL environment variable.")
+    print("[CRITICAL PERSISTENCE WARNING] Ephemeral /tmp database will reset on cold starts. Set DATABASE_URL (e.g., PostgreSQL on Supabase/Neon/Render) for serverless persistence.")
+    TMP_DB_PATH = "/tmp/literacy.db"
+    if not os.path.exists(TMP_DB_PATH) and os.path.exists(ORIGINAL_DB_PATH):
+        try:
+            shutil.copy2(ORIGINAL_DB_PATH, TMP_DB_PATH)
+            print(f"[INFO] Initialized temporary database copy at {TMP_DB_PATH}")
+        except Exception as e:
+            print(f"[WARN] Failed to copy literacy.db to /tmp: {e}")
+    DB_PATH = TMP_DB_PATH
+else:
+    DB_PATH = ORIGINAL_DB_PATH
 
 # Normalize path for cross-platform SQLite URI format
 normalized_db_path = os.path.abspath(DB_PATH).replace("\\", "/")
