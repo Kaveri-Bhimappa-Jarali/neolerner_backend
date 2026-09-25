@@ -1118,4 +1118,34 @@ class AdminVocabularyUpdate(BaseModel):
     example_sentence: Optional[str] = None
 
 
+class AdminTestCreate(BaseModel):
+    title: str
+    questions_count: int = 20
+    duration_minutes: int = 30
+    difficulty: str = "Beginner"
+    status: str = "Active"
+    pass_percentage: float = 70.0
+
+class AdminTestUpdate(BaseModel):
+    title: Optional[str] = None
+    questions_count: Optional[int] = None
+    duration_minutes: Optional[int] = None
+    difficulty: Optional[str] = None
+    status: Optional[str] = None
+    pass_percentage: Optional[float] = None
+
+class AdminTestResponse(BaseModel):
+    id: UUID
+    title: str
+    questions_count: int
+    duration_minutes: int
+    difficulty: str
+    status: str
+    pass_percentage: float
+    created_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+
 

@@ -836,6 +836,161 @@ def delete_admin_vocabulary(
     return {"message": "Vocabulary term deleted successfully"}
 
 
+# ==========================================
+# 9. TEST MANAGEMENT CRUD
+# ==========================================
+# In-memory default tests cache for dynamic admin test management
+_ADMIN_TESTS_STORE = [
+    {
+        "id": "11111111-1111-4111-a111-111111111111",
+        "title": "NLP Basics",
+        "questions_count": 20,
+        "duration_minutes": 30,
+        "difficulty": "Beginner",
+        "status": "Active",
+        "pass_percentage": 70.0,
+        "created_at": datetime.utcnow().isoformat()
+    },
+    {
+        "id": "22222222-2222-4222-a222-222222222222",
+        "title": "Cryptography & Security",
+        "questions_count": 25,
+        "duration_minutes": 45,
+        "difficulty": "Intermediate",
+        "status": "Draft",
+        "pass_percentage": 75.0,
+        "created_at": datetime.utcnow().isoformat()
+    },
+    {
+        "id": "33333333-3333-4333-a333-333333333333",
+        "title": "DBMS Fundamentals",
+        "questions_count": 30,
+        "duration_minutes": 60,
+        "difficulty": "Advanced",
+        "status": "Active",
+        "pass_percentage": 80.0,
+        "created_at": datetime.utcnow().isoformat()
+    },
+    {
+        "id": "44444444-4444-4444-a444-444444444444",
+        "title": "Phonics & Diagnostic Exam",
+        "questions_count": 15,
+        "duration_minutes": 20,
+        "difficulty": "Beginner",
+        "status": "Active",
+        "pass_percentage": 65.0,
+        "created_at": datetime.utcnow().isoformat()
+    }
+]
+
+@router.get("/tests")
+def get_admin_tests(
+    current_admin: models.Learner = Depends(dependencies.get_current_admin),
+    db: Session = Depends(database.get_db)
+):
+    """
+    Returns list of all assessments and tests for administration.
+    Combines DB assessment records with active admin tests.
+    """
+    db_assessments = db.query(models.Assessment).all()
+    results = []
+    
+    for a in db_assessments:
+        q_count = len(a.questions) if a.questions else 20
+        results.append({
+            "id": str(a.id),
+            "title": a.title,
+            "questions_count": q_count,
+            "duration_minutes": q_count * 2,
+            "difficulty": "Intermediate" if q_count > 15 else "Beginner",
+            "status": "Active",
+            "pass_percentage": a.pass_percentage or 70.0,
+            "created_at": datetime.utcnow().isoformat()
+        })
+        
+    for t in _ADMIN_TESTS_STORE:
+        if not any(r["id"] == t["id"] for r in results):
+            results.append(t)
+            
+    return results
+
+@router.post("/tests")
+def create_admin_test(
+    payload: schemas.AdminTestCreate,
+    current_admin: models.Learner = Depends(dependencies.get_current_admin),
+    db: Session = Depends(database.get_db)
+):
+    new_id = str(uuid.uuid4())
+    test_obj = {
+        "id": new_id,
+        "title": payload.title,
+        "questions_count": payload.questions_count,
+        "duration_minutes": payload.duration_minutes,
+        "difficulty": payload.difficulty,
+        "status": payload.status,
+        "pass_percentage": payload.pass_percentage,
+        "created_at": datetime.utcnow().isoformat()
+    }
+    _ADMIN_TESTS_STORE.insert(0, test_obj)
+    return {"message": "Test created successfully", "id": new_id, "test": test_obj}
+
+@router.put("/tests/{test_id}")
+def update_admin_test(
+    test_id: str,
+    payload: schemas.AdminTestUpdate,
+    current_admin: models.Learner = Depends(dependencies.get_current_admin),
+    db: Session = Depends(database.get_db)
+):
+    target = next((t for t in _ADMIN_TESTS_STORE if t["id"] == test_id), None)
+    if not target:
+        # Check DB assessments
+        try:
+            u_id = uuid.UUID(test_id)
+            db_ass = db.query(models.Assessment).filter(models.Assessment.id == u_id).first()
+            if db_ass:
+                if payload.title: db_ass.title = payload.title
+                if payload.pass_percentage: db_ass.pass_percentage = payload.pass_percentage
+                db.commit()
+                return {"message": "Assessment updated successfully"}
+        except Exception:
+            pass
+        raise HTTPException(status_code=404, detail="Test not found")
+
+    if payload.title is not None: target["title"] = payload.title
+    if payload.questions_count is not None: target["questions_count"] = payload.questions_count
+    if payload.duration_minutes is not None: target["duration_minutes"] = payload.duration_minutes
+    if payload.difficulty is not None: target["difficulty"] = payload.difficulty
+    if payload.status is not None: target["status"] = payload.status
+    if payload.pass_percentage is not None: target["pass_percentage"] = payload.pass_percentage
+
+    return {"message": "Test updated successfully", "test": target}
+
+@router.delete("/tests/{test_id}")
+def delete_admin_test(
+    test_id: str,
+    current_admin: models.Learner = Depends(dependencies.get_current_admin),
+    db: Session = Depends(database.get_db)
+):
+    global _ADMIN_TESTS_STORE
+    orig_len = len(_ADMIN_TESTS_STORE)
+    _ADMIN_TESTS_STORE = [t for t in _ADMIN_TESTS_STORE if t["id"] != test_id]
+    if len(_ADMIN_TESTS_STORE) < orig_len:
+        return {"message": "Test deleted successfully"}
+        
+    try:
+        u_id = uuid.UUID(test_id)
+        db_ass = db.query(models.Assessment).filter(models.Assessment.id == u_id).first()
+        if db_ass:
+            db.delete(db_ass)
+            db.commit()
+            return {"message": "Assessment deleted successfully"}
+    except Exception:
+        pass
+        
+    return {"message": "Test removed"}
+
+
+
 
 # ==========================================
 # 7. GENERIC DATABASE EXPLORER (LEGACY UTILITY)
