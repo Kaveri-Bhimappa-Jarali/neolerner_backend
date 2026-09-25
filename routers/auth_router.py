@@ -57,7 +57,20 @@ def register(learner: schemas.LearnerCreate, db: Session = Depends(database.get_
             func.lower(func.trim(models.Learner.email)) == normalized_email
         ).first()
         if db_learner:
-            raise HTTPException(status_code=400, detail="Email already registered")
+            if not db_learner.is_verified:
+                new_code = f"{random.randint(100000, 999999):06d}"
+                db_learner.verification_code = new_code
+                if learner.password:
+                    db_learner.hashed_password = auth.get_password_hash(learner.password)
+                db.commit()
+                db.refresh(db_learner)
+                try:
+                    send_verification_email(normalized_email, new_code, db_learner.full_name)
+                except Exception as e:
+                    print(f"[WARN /api/auth/register] Email dispatch failed: {e}")
+                return db_learner
+
+            raise HTTPException(status_code=400, detail="Email already registered. Please log in.")
         
         hashed_password = auth.get_password_hash(learner.password)
         
@@ -121,8 +134,19 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
             )
         
         if not learner.is_verified:
-            learner.is_verified = True
-            db.commit()
+            if not learner.verification_code:
+                new_code = f"{random.randint(100000, 999999):06d}"
+                learner.verification_code = new_code
+                db.commit()
+                try:
+                    send_verification_email(normalized_email, new_code, learner.full_name)
+                except Exception:
+                    pass
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Your email address is not verified yet. Please enter the 6-digit verification code sent to your email.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
         
         access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = auth.create_access_token(
