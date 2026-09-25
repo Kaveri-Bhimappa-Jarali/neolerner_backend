@@ -79,7 +79,7 @@ def register(learner: schemas.LearnerCreate, db: Session = Depends(database.get_
         pref_id = resolve_language_id(db, learner.preferred_language_id, learner.preferred_language_code)
         target_id = resolve_language_id(db, learner.target_language_id, learner.target_language_code)
         verification_code = None if is_admin_account else f"{random.randint(100000, 999999):06d}"
-        is_verified = True if is_admin_account else False
+        is_verified = True  # Auto-verify registered learners to allow instant login & full access
 
         new_learner = models.Learner(
             email=normalized_email,
@@ -138,20 +138,10 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
                 headers={"WWW-Authenticate": "Bearer"},
             )
         
+        # Auto-verify learner on valid password login if not already verified
         if not learner.is_verified:
-            if not learner.verification_code:
-                new_code = f"{random.randint(100000, 999999):06d}"
-                learner.verification_code = new_code
-                db.commit()
-                try:
-                    send_verification_email(normalized_email, new_code, learner.full_name)
-                except Exception:
-                    pass
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Your email address is not verified yet. Please enter the 6-digit verification code sent to your email.",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+            learner.is_verified = True
+            db.commit()
         
         access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = auth.create_access_token(
