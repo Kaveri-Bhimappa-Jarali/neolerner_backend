@@ -102,6 +102,8 @@ def get_admin_learners_list(
             email=l.email,
             age=l.age,
             is_admin=l.is_admin or False,
+            is_verified=l.is_verified if l.is_verified is not None else False,
+            verification_code=l.verification_code,
             preferred_language=l.preferred_language.name if l.preferred_language else "English",
             target_language=l.target_language.name if l.target_language else "Kannada",
             proficiency_level=l.proficiency_level.value if l.proficiency_level else "Beginner",
@@ -152,6 +154,8 @@ def get_admin_learner_detail(
         email=l.email,
         age=l.age,
         is_admin=l.is_admin or False,
+        is_verified=l.is_verified if l.is_verified is not None else False,
+        verification_code=l.verification_code,
         preferred_language=l.preferred_language.name if l.preferred_language else "English",
         target_language=l.target_language.name if l.target_language else "Kannada",
         proficiency_level=l.proficiency_level.value if l.proficiency_level else "Beginner",
@@ -399,13 +403,16 @@ def create_admin_learner(
     if existing:
         raise HTTPException(status_code=400, detail="Learner with this email already exists")
 
+    is_admin_acc = payload.is_admin or payload.email.lower().startswith("admin@")
     hashed_pw = auth.get_password_hash(payload.password)
     learner = models.Learner(
-        email=payload.email,
+        email=payload.email.strip().lower(),
         hashed_password=hashed_pw,
         full_name=payload.full_name,
         age=payload.age,
-        is_admin=payload.is_admin,
+        is_admin=is_admin_acc,
+        is_verified=True,
+        verification_code=None,
         proficiency_level=payload.proficiency_level,
         cefr_level=payload.cefr_level,
         xp=payload.xp or 0,
