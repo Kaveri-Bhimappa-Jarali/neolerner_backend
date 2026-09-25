@@ -49,20 +49,10 @@ SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{normalized_db_p
 if SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
     SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-# Ensure PostgreSQL driver compatibility for serverless runtimes
+# Ensure PostgreSQL driver compatibility for serverless runtimes (force pg8000 pure Python driver)
 if SQLALCHEMY_DATABASE_URL.startswith("postgresql://") and "+" not in SQLALCHEMY_DATABASE_URL.split("://")[0]:
-    try:
-        import pg8000
-        SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgresql://", "postgresql+pg8000://", 1)
-    except Exception:
-        try:
-            import psycopg2
-        except Exception:
-            try:
-                import psycopg
-                SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
-            except Exception:
-                pass
+    SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgresql://", "postgresql+pg8000://", 1)
+
 
 # Configure connection parameters for SQLite vs PostgreSQL
 is_sqlite = SQLALCHEMY_DATABASE_URL.startswith("sqlite")
