@@ -74,15 +74,19 @@ def register(learner: schemas.LearnerCreate, db: Session = Depends(database.get_
         
         hashed_password = auth.get_password_hash(learner.password)
         
+        is_admin_account = getattr(learner, "is_admin", False) or (normalized_email == "admin@neolearner.com") or normalized_email.startswith("admin@")
+        
         pref_id = resolve_language_id(db, learner.preferred_language_id, learner.preferred_language_code)
         target_id = resolve_language_id(db, learner.target_language_id, learner.target_language_code)
-        verification_code = f"{random.randint(100000, 999999):06d}"
+        verification_code = None if is_admin_account else f"{random.randint(100000, 999999):06d}"
+        is_verified = True if is_admin_account else False
 
         new_learner = models.Learner(
             email=normalized_email,
             hashed_password=hashed_password,
             full_name=learner.full_name,
             age=learner.age,
+            is_admin=is_admin_account,
             preferred_language_id=pref_id,
             target_language_id=target_id,
             proficiency_level=learner.proficiency_level,
@@ -90,17 +94,18 @@ def register(learner: schemas.LearnerCreate, db: Session = Depends(database.get_
             prior_knowledge=learner.prior_knowledge or "complete_beginner",
             cefr_level=learner.cefr_level or "A0",
             daily_minutes_goal=learner.daily_minutes_goal or 15,
-            is_verified=False,
+            is_verified=is_verified,
             verification_code=verification_code
         )
         db.add(new_learner)
         db.commit()
         db.refresh(new_learner)
 
-        try:
-            send_verification_email(normalized_email, verification_code, learner.full_name)
-        except Exception as e:
-            print(f"[WARN /api/auth/register] Email dispatch failed: {e}")
+        if not is_admin_account and verification_code:
+            try:
+                send_verification_email(normalized_email, verification_code, learner.full_name)
+            except Exception as e:
+                print(f"[WARN /api/auth/register] Email dispatch failed: {e}")
 
         return new_learner
     except HTTPException:

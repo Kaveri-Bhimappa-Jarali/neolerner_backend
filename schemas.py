@@ -958,6 +958,8 @@ class AdminLearnerDetailResponse(BaseModel):
     email: str
     age: Optional[int]
     is_admin: bool
+    is_verified: bool = False
+    verification_code: Optional[str] = None
     preferred_language: Optional[str]
     target_language: Optional[str]
     proficiency_level: str
