@@ -13,9 +13,8 @@ def get_current_learner(
     db: Session = Depends(database.get_db)
 ) -> models.Learner:
     """
-    Returns the current authenticated learner based on JWT token.
-    If token is missing, expired, or invalid, gracefully falls back to the active learner in DB
-    so that all learner endpoints work smoothly without blocking users with authentication errors.
+    Returns the authenticated learner from the Bearer JWT token.
+    Enforces user data isolation and persistent database verification.
     """
     if token:
         try:
@@ -31,35 +30,25 @@ def get_current_learner(
                 ).first()
                 if learner:
                     return learner
-        except Exception:
-            pass
+        except jwt.PyJWTError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired authentication token. Please log in again.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        except Exception as e:
+            print(f"[WARN get_current_learner] Token verification error: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication failed. Please log in again.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
-    # Fallback 1: Return the most recently active registered learner in DB
-    fallback_learner = db.query(models.Learner).options(
-        joinedload(models.Learner.preferred_language),
-        joinedload(models.Learner.target_language)
-    ).order_by(models.Learner.created_at.desc()).first()
-
-    if fallback_learner:
-        return fallback_learner
-
-    # Fallback 2: Ensure a default active learner exists if DB is empty
-    default_email = "learner@neolearner.com"
-    en_lang = db.query(models.Language).filter(models.Language.code == "en").first()
-    kn_lang = db.query(models.Language).filter(models.Language.code == "kn").first()
-    
-    new_learner = models.Learner(
-        email=default_email,
-        hashed_password=auth.get_password_hash("LearnerPass123!"),
-        full_name="Active Learner",
-        preferred_language_id=en_lang.id if en_lang else None,
-        target_language_id=kn_lang.id if kn_lang else None,
-        is_verified=True
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Not authenticated. Bearer authentication token missing.",
+        headers={"WWW-Authenticate": "Bearer"},
     )
-    db.add(new_learner)
-    db.commit()
-    db.refresh(new_learner)
-    return new_learner
 
 def get_current_admin(
     current_learner: models.Learner = Depends(get_current_learner),

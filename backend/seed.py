@@ -17,8 +17,7 @@ from backend.models import (
 from backend.auth import get_password_hash
 
 def seed_database():
-    print("Recreating database tables...")
-    Base.metadata.drop_all(bind=engine)
+    print("Ensuring database tables exist...")
     Base.metadata.create_all(bind=engine)
     
     db = SessionLocal()

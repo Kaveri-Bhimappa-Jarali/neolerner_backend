@@ -240,3 +240,28 @@ def get_achievements(
     }
     
     return [wildfire, scholar, champion, gem_collector]
+
+@router.delete("/me")
+@router.delete("/me/")
+def delete_account_me(
+    current_learner: models.Learner = Depends(dependencies.get_current_learner),
+    db: Session = Depends(database.get_db)
+):
+    """
+    Explicit user account deletion endpoint.
+    Permanently deletes the authenticated learner account and commits the deletion to the persistent database.
+    """
+    try:
+        db.delete(current_learner)
+        db.commit()
+        return {
+            "status": "success",
+            "message": "User account and all associated learner records have been permanently deleted."
+        }
+    except Exception as e:
+        db.rollback()
+        print(f"[ERROR /api/learners/me DELETE]: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to delete account: {str(e)}"
+        )
