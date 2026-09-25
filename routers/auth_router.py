@@ -79,7 +79,7 @@ def register(learner: schemas.LearnerCreate, db: Session = Depends(database.get_
         pref_id = resolve_language_id(db, learner.preferred_language_id, learner.preferred_language_code)
         target_id = resolve_language_id(db, learner.target_language_id, learner.target_language_code)
         verification_code = None if is_admin_account else f"{random.randint(100000, 999999):06d}"
-        is_verified = True  # Auto-verify registered learners to allow instant login & full access
+        is_verified = is_admin_account
 
         new_learner = models.Learner(
             email=normalized_email,
