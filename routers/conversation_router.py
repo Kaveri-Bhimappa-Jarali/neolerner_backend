@@ -288,7 +288,7 @@ def get_conversation_scenarios():
 @router.post("/start/", response_model=schemas.ConversationStartResponse)
 def start_conversation(
     req: schemas.ConversationStartRequest,
-    current_learner: models.Learner = Depends(dependencies.get_current_learner),
+    current_learner: models.Learner = Depends(dependencies.get_current_learner_or_fallback),
     db: Session = Depends(database.get_db)
 ):
     gamification.recharge_hearts_by_time(current_learner, db)
@@ -344,7 +344,7 @@ def start_conversation(
 @router.post("/respond/", response_model=schemas.ConversationRespondResponse)
 def respond_conversation(
     req: schemas.ConversationRespondRequest,
-    current_learner: models.Learner = Depends(dependencies.get_current_learner),
+    current_learner: models.Learner = Depends(dependencies.get_current_learner_or_fallback),
     db: Session = Depends(database.get_db)
 ):
     try:
@@ -481,7 +481,7 @@ def respond_conversation(
 @router.post("/end/", response_model=schemas.ConversationEndResponse)
 def end_conversation(
     req: schemas.ConversationEndRequest,
-    current_learner: models.Learner = Depends(dependencies.get_current_learner),
+    current_learner: models.Learner = Depends(dependencies.get_current_learner_or_fallback),
     db: Session = Depends(database.get_db)
 ):
     session = db.query(models.ConversationSession).filter(
