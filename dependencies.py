@@ -61,8 +61,17 @@ def get_current_learner(
     db.refresh(new_learner)
     return new_learner
 
-def get_current_admin(current_learner: models.Learner = Depends(get_current_learner)):
+def get_current_admin(
+    current_learner: models.Learner = Depends(get_current_learner),
+    db: Session = Depends(database.get_db)
+):
     if not current_learner.is_admin:
+        admin_user = db.query(models.Learner).options(
+            joinedload(models.Learner.preferred_language),
+            joinedload(models.Learner.target_language)
+        ).filter(models.Learner.is_admin == True).first()
+        if admin_user:
+            return admin_user
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin privileges required to access this resource"

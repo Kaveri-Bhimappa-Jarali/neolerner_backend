@@ -39,7 +39,7 @@ def get_diagnostic_status(
         "has_completed_placement_test": current_learner.has_completed_placement_test or False,
         "placement_score": current_learner.placement_score,
         "cefr_level": current_learner.cefr_level or "A0",
-        "proficiency_level": current_learner.proficiency_level.value if current_learner.proficiency_level else "Beginner",
+        "proficiency_level": current_learner.proficiency_level.value if hasattr(current_learner.proficiency_level, 'value') else str(current_learner.proficiency_level or "Beginner"),
         "benchmark_level": current_learner.benchmark_level or "Emergent Reader",
         "predicted_proficiency_score": current_learner.predicted_proficiency_score or 0.0,
         "learning_goal": current_learner.learning_goal or "conversation",
