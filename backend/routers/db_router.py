@@ -52,10 +52,20 @@ def get_db_overview(db: Session = Depends(database.get_db)):
     db_file_size = 0
     if os.path.exists(database.DB_PATH):
         db_file_size = os.path.getsize(database.DB_PATH)
+
+    db_url_str = str(database.SQLALCHEMY_DATABASE_URL)
+    if "postgresql" in db_url_str or "postgres" in db_url_str:
+        db_type = "PostgreSQL"
+    elif "mysql" in db_url_str:
+        db_type = "MySQL"
+    elif "sqlite" in db_url_str:
+        db_type = "SQLite"
+    else:
+        db_type = db_url_str.split("://")[0].upper() if "://" in db_url_str else "SQL Database"
         
     return {
         "status": "connected",
-        "database_type": "SQLite",
+        "database_type": db_type,
         "database_path": database.DB_PATH,
         "database_size_bytes": db_file_size,
         "database_size_formatted": f"{db_file_size / 1024:.2f} KB",
