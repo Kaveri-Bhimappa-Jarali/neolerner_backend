@@ -27,7 +27,13 @@ def is_readonly_env():
 
 IS_SERVERLESS_OR_READONLY = is_readonly_env()
 
-if IS_SERVERLESS_OR_READONLY and not os.getenv("DATABASE_URL"):
+def get_db_url():
+    """Retrieve database URL from environment variable DATABASE_URL (or fallback DBURL / DB_URL)."""
+    return os.getenv("DATABASE_URL") or os.getenv("DBURL") or os.getenv("DB_URL")
+
+raw_env_url = get_db_url()
+
+if IS_SERVERLESS_OR_READONLY and not raw_env_url:
     print("[CRITICAL PERSISTENCE WARNING] Running in serverless environment without persistent DATABASE_URL environment variable.")
     TMP_DB_PATH = "/tmp/literacy.db"
     if not os.path.exists(TMP_DB_PATH) and os.path.exists(ORIGINAL_DB_PATH):
@@ -42,7 +48,7 @@ else:
 
 # Normalize path for cross-platform SQLite URI format
 normalized_db_path = os.path.abspath(DB_PATH).replace("\\", "/")
-SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{normalized_db_path}")
+SQLALCHEMY_DATABASE_URL = raw_env_url if raw_env_url else f"sqlite:///{normalized_db_path}"
 
 # Standardize postgres scheme for SQLAlchemy 1.4/2.0 compatibility
 if SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
@@ -98,8 +104,9 @@ try:
     )
 except Exception as e:
     print(f"[WARN] Primary database engine creation failed ({e}). Falling back to SQLite.")
+    fallback_uri = f"sqlite:///{normalized_db_path}" if os.path.exists(normalized_db_path) else "sqlite:///:memory:"
     engine = create_engine(
-        f"sqlite:////tmp/literacy.db",
+        fallback_uri,
         connect_args={"check_same_thread": False, "timeout": 30}
     )
 
