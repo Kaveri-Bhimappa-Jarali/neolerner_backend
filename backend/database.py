@@ -141,72 +141,79 @@ _db_lock = threading.Lock()
 
 def ensure_tables_created():
     global _tables_initialized
-    if not _tables_initialized:
-        with _db_lock:
-            if not _tables_initialized:
+    with _db_lock:
+        try:
+            from sqlalchemy import inspect
+            inspector = inspect(engine)
+            has_learners = inspector.has_table("learners")
+        except Exception:
+            has_learners = False
+
+        if not _tables_initialized or not has_learners:
+            try:
+                backend_dir = os.path.dirname(os.path.abspath(__file__))
+                if backend_dir not in sys.path:
+                    sys.path.insert(0, backend_dir)
                 try:
-                    backend_dir = os.path.dirname(os.path.abspath(__file__))
-                    if backend_dir not in sys.path:
-                        sys.path.insert(0, backend_dir)
-                    try:
-                        import models
-                    except ImportError:
-                        from . import models
-                    try:
-                        from seed_data import seed_initial_database
-                    except ImportError:
-                        from .seed_data import seed_initial_database
-                    from sqlalchemy import text
-                    models.Base.metadata.create_all(bind=engine)
+                    import models
+                except ImportError:
+                    from . import models
+                try:
+                    from seed_data import seed_initial_database
+                except ImportError:
+                    from .seed_data import seed_initial_database
+                from sqlalchemy import text
 
-                    # Ensure new columns exist on learners and assessment_results tables if created from older schema
-                    try:
-                        with engine.connect() as conn:
-                            for col_name, col_type in [
-                                ("is_verified", "BOOLEAN DEFAULT 0"),
-                                ("verification_code", "VARCHAR"),
-                                ("google_id", "VARCHAR"),
-                                ("avatar_url", "VARCHAR"),
-                                ("has_completed_placement_test", "BOOLEAN DEFAULT 0"),
-                                ("placement_score", "FLOAT"),
-                                ("proficiency_level", "VARCHAR DEFAULT 'Beginner'"),
-                                ("predicted_proficiency_score", "FLOAT DEFAULT 0.0"),
-                                ("benchmark_level", "VARCHAR DEFAULT 'Emergent Reader'"),
-                                ("cefr_level", "VARCHAR DEFAULT 'A0'"),
-                                ("learning_goal", "VARCHAR DEFAULT 'conversation'"),
-                                ("prior_knowledge", "VARCHAR DEFAULT 'complete_beginner'"),
-                                ("daily_minutes_goal", "INTEGER DEFAULT 15")
-                            ]:
-                                try:
-                                    conn.execute(text(f"ALTER TABLE learners ADD COLUMN {col_name} {col_type}"))
-                                    conn.commit()
-                                except Exception:
-                                    pass
+                models.Base.metadata.create_all(bind=engine)
 
-                            for col_name, col_type in [
-                                ("cefr_level", "VARCHAR"),
-                                ("skill_breakdown", "TEXT"),
-                                ("strengths", "TEXT"),
-                                ("weak_areas", "TEXT")
-                            ]:
-                                try:
-                                    conn.execute(text(f"ALTER TABLE assessment_results ADD COLUMN {col_name} {col_type}"))
-                                    conn.commit()
-                                except Exception:
-                                    pass
-                    except Exception:
-                        pass
+                # Ensure new columns exist on learners and assessment_results tables if created from older schema
+                try:
+                    with engine.connect() as conn:
+                        for col_name, col_type in [
+                            ("is_verified", "BOOLEAN DEFAULT 0"),
+                            ("verification_code", "VARCHAR"),
+                            ("google_id", "VARCHAR"),
+                            ("avatar_url", "VARCHAR"),
+                            ("has_completed_placement_test", "BOOLEAN DEFAULT 0"),
+                            ("placement_score", "FLOAT"),
+                            ("proficiency_level", "VARCHAR DEFAULT 'Beginner'"),
+                            ("predicted_proficiency_score", "FLOAT DEFAULT 0.0"),
+                            ("benchmark_level", "VARCHAR DEFAULT 'Emergent Reader'"),
+                            ("cefr_level", "VARCHAR DEFAULT 'A0'"),
+                            ("learning_goal", "VARCHAR DEFAULT 'conversation'"),
+                            ("prior_knowledge", "VARCHAR DEFAULT 'complete_beginner'"),
+                            ("daily_minutes_goal", "INTEGER DEFAULT 15")
+                        ]:
+                            try:
+                                conn.execute(text(f"ALTER TABLE learners ADD COLUMN {col_name} {col_type}"))
+                                conn.commit()
+                            except Exception:
+                                pass
 
-                    db = SessionLocal()
-                    try:
-                        seed_initial_database(db)
-                    except Exception as se:
-                        print(f"[WARN] Seed exception in ensure_tables_created: {se}")
-                    finally:
-                        db.close()
-                    _tables_initialized = True
-                except Exception as e:
-                    print(f"[WARN] Table creation check warning: {e}")
+                        for col_name, col_type in [
+                            ("cefr_level", "VARCHAR"),
+                            ("skill_breakdown", "TEXT"),
+                            ("strengths", "TEXT"),
+                            ("weak_areas", "TEXT")
+                        ]:
+                            try:
+                                conn.execute(text(f"ALTER TABLE assessment_results ADD COLUMN {col_name} {col_type}"))
+                                conn.commit()
+                            except Exception:
+                                pass
+                except Exception:
+                    pass
+
+                db = SessionLocal()
+                try:
+                    seed_initial_database(db)
+                except Exception as se:
+                    print(f"[WARN] Seed exception in ensure_tables_created: {se}")
+                finally:
+                    db.close()
+                _tables_initialized = True
+            except Exception as e:
+                print(f"[WARN] Table creation check warning: {e}")
 
 
 def get_db():
