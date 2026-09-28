@@ -45,9 +45,21 @@ app = FastAPI(title="Literacy Assistance API & Backend Portal")
 
 @app.middleware("http")
 async def fix_vercel_path_and_cors_middleware(request: Request, call_next):
-    # 1. Strip /api/index.py prefix if added by Vercel serverless rewrites
+    # 1. Resolve actual path from Vercel serverless environment headers if available
     path = request.scope.get("path", "")
-    if path.startswith("/api/index.py"):
+    forwarded_path = (
+        request.headers.get("x-forwarded-uri") or
+        request.headers.get("x-matched-path") or
+        request.headers.get("x-original-uri") or
+        request.headers.get("x-url")
+    )
+    
+    if path == "/api/index.py" or path == "/api/index.py/":
+        if forwarded_path and forwarded_path not in ["/api/index.py", "/api/index.py/"]:
+            request.scope["path"] = forwarded_path
+        else:
+            request.scope["path"] = "/"
+    elif path.startswith("/api/index.py/"):
         new_path = path[13:]
         if not new_path.startswith("/"):
             new_path = "/" + new_path
