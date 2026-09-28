@@ -8,7 +8,7 @@ import schemas, models, auth, database
 import uuid
 from typing import Optional
 
-router = APIRouter(prefix="/api/auth", tags=["auth"])
+router = APIRouter(tags=["auth"])
 
 def resolve_language_id(db: Session, lang_val, code_val) -> Optional[uuid.UUID]:
     if isinstance(lang_val, uuid.UUID):
@@ -48,12 +48,14 @@ except ImportError:
         def send_verification_email(to_email, code, full_name=""):
             print(f"[EMAIL FALLBACK] Verification code for {to_email}: {code}")
 
-@router.post("/register", response_model=schemas.LearnerResponse, status_code=status.HTTP_201_CREATED)
-@router.post("/register/", response_model=schemas.LearnerResponse, status_code=status.HTTP_201_CREATED)
-@router.post("/api/auth/register", response_model=schemas.LearnerResponse, status_code=status.HTTP_201_CREATED, include_in_schema=False)
+@router.post("/api/auth/register", response_model=schemas.LearnerResponse, status_code=status.HTTP_201_CREATED)
 @router.post("/api/auth/register/", response_model=schemas.LearnerResponse, status_code=status.HTTP_201_CREATED, include_in_schema=False)
 @router.post("/auth/register", response_model=schemas.LearnerResponse, status_code=status.HTTP_201_CREATED, include_in_schema=False)
 @router.post("/auth/register/", response_model=schemas.LearnerResponse, status_code=status.HTTP_201_CREATED, include_in_schema=False)
+@router.post("/api/register", response_model=schemas.LearnerResponse, status_code=status.HTTP_201_CREATED, include_in_schema=False)
+@router.post("/api/register/", response_model=schemas.LearnerResponse, status_code=status.HTTP_201_CREATED, include_in_schema=False)
+@router.post("/register", response_model=schemas.LearnerResponse, status_code=status.HTTP_201_CREATED, include_in_schema=False)
+@router.post("/register/", response_model=schemas.LearnerResponse, status_code=status.HTTP_201_CREATED, include_in_schema=False)
 def register(learner: schemas.LearnerCreate, db: Session = Depends(database.get_db)):
     try:
         normalized_email = learner.email.strip().lower()
@@ -119,14 +121,16 @@ def register(learner: schemas.LearnerCreate, db: Session = Depends(database.get_
         print(f"[ERROR /api/auth/register]: {e}")
         raise HTTPException(status_code=400, detail=f"Registration failed: {str(e)}")
 
-@router.post("/login", response_model=schemas.Token)
-@router.post("/login/", response_model=schemas.Token)
-@router.post("/token", response_model=schemas.Token)
-@router.post("/token/", response_model=schemas.Token)
-@router.post("/api/auth/login", response_model=schemas.Token, include_in_schema=False)
+@router.post("/api/auth/login", response_model=schemas.Token)
 @router.post("/api/auth/login/", response_model=schemas.Token, include_in_schema=False)
 @router.post("/auth/login", response_model=schemas.Token, include_in_schema=False)
 @router.post("/auth/login/", response_model=schemas.Token, include_in_schema=False)
+@router.post("/api/login", response_model=schemas.Token, include_in_schema=False)
+@router.post("/api/login/", response_model=schemas.Token, include_in_schema=False)
+@router.post("/login", response_model=schemas.Token, include_in_schema=False)
+@router.post("/login/", response_model=schemas.Token, include_in_schema=False)
+@router.post("/token", response_model=schemas.Token, include_in_schema=False)
+@router.post("/token/", response_model=schemas.Token, include_in_schema=False)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(database.get_db)):
     try:
         normalized_email = form_data.username.strip().lower()
@@ -168,12 +172,14 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
         print(f"[ERROR /api/auth/login]: {e}")
         raise HTTPException(status_code=400, detail=f"Login failed: {str(e)}")
 
-@router.post("/reset-password", response_model=schemas.Token)
-@router.post("/reset-password/", response_model=schemas.Token)
-@router.post("/api/auth/reset-password", response_model=schemas.Token, include_in_schema=False)
+@router.post("/api/auth/reset-password", response_model=schemas.Token)
 @router.post("/api/auth/reset-password/", response_model=schemas.Token, include_in_schema=False)
 @router.post("/auth/reset-password", response_model=schemas.Token, include_in_schema=False)
 @router.post("/auth/reset-password/", response_model=schemas.Token, include_in_schema=False)
+@router.post("/api/reset-password", response_model=schemas.Token, include_in_schema=False)
+@router.post("/api/reset-password/", response_model=schemas.Token, include_in_schema=False)
+@router.post("/reset-password", response_model=schemas.Token, include_in_schema=False)
+@router.post("/reset-password/", response_model=schemas.Token, include_in_schema=False)
 def reset_password(req: schemas.ResetPasswordRequest, db: Session = Depends(database.get_db)):
     try:
         normalized_email = req.email.strip().lower()
@@ -215,12 +221,14 @@ def reset_password(req: schemas.ResetPasswordRequest, db: Session = Depends(data
         print(f"[ERROR /api/auth/reset-password]: {e}")
         raise HTTPException(status_code=400, detail=f"Password reset failed: {str(e)}")
 
-@router.post("/google", response_model=schemas.Token)
-@router.post("/google/", response_model=schemas.Token)
-@router.post("/api/auth/google", response_model=schemas.Token, include_in_schema=False)
+@router.post("/api/auth/google", response_model=schemas.Token)
 @router.post("/api/auth/google/", response_model=schemas.Token, include_in_schema=False)
 @router.post("/auth/google", response_model=schemas.Token, include_in_schema=False)
 @router.post("/auth/google/", response_model=schemas.Token, include_in_schema=False)
+@router.post("/api/google", response_model=schemas.Token, include_in_schema=False)
+@router.post("/api/google/", response_model=schemas.Token, include_in_schema=False)
+@router.post("/google", response_model=schemas.Token, include_in_schema=False)
+@router.post("/google/", response_model=schemas.Token, include_in_schema=False)
 def google_auth(req: schemas.GoogleAuthRequest, db: Session = Depends(database.get_db)):
     """Authenticates or creates a user using Google OAuth Single Sign-On."""
     try:
@@ -279,12 +287,14 @@ def google_auth(req: schemas.GoogleAuthRequest, db: Session = Depends(database.g
         print(f"[ERROR /api/auth/google]: {e}")
         raise HTTPException(status_code=400, detail=f"Google authentication failed: {str(e)}")
 
-@router.post("/verify-email")
-@router.post("/verify-email/")
-@router.post("/api/auth/verify-email", include_in_schema=False)
+@router.post("/api/auth/verify-email")
 @router.post("/api/auth/verify-email/", include_in_schema=False)
 @router.post("/auth/verify-email", include_in_schema=False)
 @router.post("/auth/verify-email/", include_in_schema=False)
+@router.post("/api/verify-email", include_in_schema=False)
+@router.post("/api/verify-email/", include_in_schema=False)
+@router.post("/verify-email", include_in_schema=False)
+@router.post("/verify-email/", include_in_schema=False)
 def verify_email(req: schemas.VerifyEmailRequest, db: Session = Depends(database.get_db)):
     """Validates 6-digit email verification code."""
     normalized_email = req.email.strip().lower()
@@ -320,12 +330,14 @@ def verify_email(req: schemas.VerifyEmailRequest, db: Session = Depends(database
     
     raise HTTPException(status_code=400, detail="Invalid verification code. Please check your email or click Resend.")
 
-@router.post("/resend-code")
-@router.post("/resend-code/")
-@router.post("/api/auth/resend-code", include_in_schema=False)
+@router.post("/api/auth/resend-code")
 @router.post("/api/auth/resend-code/", include_in_schema=False)
 @router.post("/auth/resend-code", include_in_schema=False)
 @router.post("/auth/resend-code/", include_in_schema=False)
+@router.post("/api/resend-code", include_in_schema=False)
+@router.post("/api/resend-code/", include_in_schema=False)
+@router.post("/resend-code", include_in_schema=False)
+@router.post("/resend-code/", include_in_schema=False)
 def resend_code(req: schemas.ResendCodeRequest, db: Session = Depends(database.get_db)):
     """Generates a new 6-digit verification code and emails it."""
     normalized_email = req.email.strip().lower()
