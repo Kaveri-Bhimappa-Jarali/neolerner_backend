@@ -7,7 +7,10 @@ import schemas, models, database, dependencies, gamification
 
 router = APIRouter(prefix="/api/progress", tags=["progress"])
 
+@router.get("", response_model=List[schemas.LearningProgressResponse])
+@router.get("/", response_model=List[schemas.LearningProgressResponse])
 @router.get("/me", response_model=List[schemas.LearningProgressResponse])
+@router.get("/me/", response_model=List[schemas.LearningProgressResponse])
 def get_my_learning_progress(
     current_learner: models.Learner = Depends(dependencies.get_current_learner),
     db: Session = Depends(database.get_db)

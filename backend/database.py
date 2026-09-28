@@ -141,79 +141,87 @@ _db_lock = threading.Lock()
 
 def ensure_tables_created():
     global _tables_initialized
+    if _tables_initialized:
+        return
+
     with _db_lock:
+        if _tables_initialized:
+            return
+
         try:
-            from sqlalchemy import inspect
-            inspector = inspect(engine)
-            has_learners = inspector.has_table("learners")
-        except Exception:
-            has_learners = False
-
-        if not _tables_initialized or not has_learners:
+            from sqlalchemy import inspect, text
+            backend_dir = os.path.dirname(os.path.abspath(__file__))
+            if backend_dir not in sys.path:
+                sys.path.insert(0, backend_dir)
             try:
-                backend_dir = os.path.dirname(os.path.abspath(__file__))
-                if backend_dir not in sys.path:
-                    sys.path.insert(0, backend_dir)
-                try:
-                    import models
-                except ImportError:
-                    from . import models
-                try:
-                    from seed_data import seed_initial_database
-                except ImportError:
-                    from .seed_data import seed_initial_database
-                from sqlalchemy import text
+                import models
+            except ImportError:
+                from . import models
+            try:
+                from seed_data import seed_initial_database
+            except ImportError:
+                from .seed_data import seed_initial_database
 
-                models.Base.metadata.create_all(bind=engine)
+            models.Base.metadata.create_all(bind=engine)
 
-                # Ensure new columns exist on learners and assessment_results tables if created from older schema
-                try:
+            # Safely verify and add any missing columns for database schema migrations
+            try:
+                inspector = inspect(engine)
+                if inspector.has_table("learners"):
+                    existing_learner_cols = {c["name"] for c in inspector.get_columns("learners")}
+                    learner_columns_to_check = [
+                        ("is_verified", "BOOLEAN DEFAULT FALSE"),
+                        ("verification_code", "VARCHAR"),
+                        ("google_id", "VARCHAR"),
+                        ("avatar_url", "VARCHAR"),
+                        ("has_completed_placement_test", "BOOLEAN DEFAULT FALSE"),
+                        ("placement_score", "FLOAT"),
+                        ("proficiency_level", "VARCHAR DEFAULT 'Beginner'"),
+                        ("predicted_proficiency_score", "FLOAT DEFAULT 0.0"),
+                        ("benchmark_level", "VARCHAR DEFAULT 'Emergent Reader'"),
+                        ("cefr_level", "VARCHAR DEFAULT 'A0'"),
+                        ("learning_goal", "VARCHAR DEFAULT 'conversation'"),
+                        ("prior_knowledge", "VARCHAR DEFAULT 'complete_beginner'"),
+                        ("daily_minutes_goal", "INTEGER DEFAULT 15")
+                    ]
                     with engine.connect() as conn:
-                        for col_name, col_type in [
-                            ("is_verified", "BOOLEAN DEFAULT 0"),
-                            ("verification_code", "VARCHAR"),
-                            ("google_id", "VARCHAR"),
-                            ("avatar_url", "VARCHAR"),
-                            ("has_completed_placement_test", "BOOLEAN DEFAULT 0"),
-                            ("placement_score", "FLOAT"),
-                            ("proficiency_level", "VARCHAR DEFAULT 'Beginner'"),
-                            ("predicted_proficiency_score", "FLOAT DEFAULT 0.0"),
-                            ("benchmark_level", "VARCHAR DEFAULT 'Emergent Reader'"),
-                            ("cefr_level", "VARCHAR DEFAULT 'A0'"),
-                            ("learning_goal", "VARCHAR DEFAULT 'conversation'"),
-                            ("prior_knowledge", "VARCHAR DEFAULT 'complete_beginner'"),
-                            ("daily_minutes_goal", "INTEGER DEFAULT 15")
-                        ]:
-                            try:
-                                conn.execute(text(f"ALTER TABLE learners ADD COLUMN {col_name} {col_type}"))
-                                conn.commit()
-                            except Exception:
-                                pass
+                        for col_name, col_type in learner_columns_to_check:
+                            if col_name not in existing_learner_cols:
+                                try:
+                                    conn.execute(text(f"ALTER TABLE learners ADD COLUMN {col_name} {col_type}"))
+                                    conn.commit()
+                                except Exception as alter_err:
+                                    print(f"[WARN] Failed adding column {col_name} to learners: {alter_err}")
 
-                        for col_name, col_type in [
-                            ("cefr_level", "VARCHAR"),
-                            ("skill_breakdown", "TEXT"),
-                            ("strengths", "TEXT"),
-                            ("weak_areas", "TEXT")
-                        ]:
-                            try:
-                                conn.execute(text(f"ALTER TABLE assessment_results ADD COLUMN {col_name} {col_type}"))
-                                conn.commit()
-                            except Exception:
-                                pass
-                except Exception:
-                    pass
+                if inspector.has_table("assessment_results"):
+                    existing_result_cols = {c["name"] for c in inspector.get_columns("assessment_results")}
+                    result_columns_to_check = [
+                        ("cefr_level", "VARCHAR"),
+                        ("skill_breakdown", "TEXT"),
+                        ("strengths", "TEXT"),
+                        ("weak_areas", "TEXT")
+                    ]
+                    with engine.connect() as conn:
+                        for col_name, col_type in result_columns_to_check:
+                            if col_name not in existing_result_cols:
+                                try:
+                                    conn.execute(text(f"ALTER TABLE assessment_results ADD COLUMN {col_name} {col_type}"))
+                                    conn.commit()
+                                except Exception as alter_err:
+                                    print(f"[WARN] Failed adding column {col_name} to assessment_results: {alter_err}")
+            except Exception as schema_err:
+                print(f"[WARN] Column migration check exception: {schema_err}")
 
-                db = SessionLocal()
-                try:
-                    seed_initial_database(db)
-                except Exception as se:
-                    print(f"[WARN] Seed exception in ensure_tables_created: {se}")
-                finally:
-                    db.close()
-                _tables_initialized = True
-            except Exception as e:
-                print(f"[WARN] Table creation check warning: {e}")
+            db = SessionLocal()
+            try:
+                seed_initial_database(db)
+            except Exception as se:
+                print(f"[WARN] Seed exception in ensure_tables_created: {se}")
+            finally:
+                db.close()
+            _tables_initialized = True
+        except Exception as e:
+            print(f"[WARN] Table creation check warning: {e}")
 
 
 def get_db():
