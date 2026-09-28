@@ -14,6 +14,8 @@ def read_users_me(
     gamification.recharge_hearts_by_time(current_learner, db)
     return current_learner
 
+import uuid
+
 @router.put("/me", response_model=schemas.LearnerResponse)
 @router.put("/me/", response_model=schemas.LearnerResponse)
 def update_user_me(
@@ -27,10 +29,29 @@ def update_user_me(
         current_learner.full_name = learner_update.full_name.strip()
     if "age" in learner_update.model_fields_set and learner_update.age is not None:
         current_learner.age = learner_update.age
-    if "preferred_language_id" in learner_update.model_fields_set and learner_update.preferred_language_id is not None:
-        current_learner.preferred_language_id = learner_update.preferred_language_id
-    if "target_language_id" in learner_update.model_fields_set and learner_update.target_language_id is not None:
-        current_learner.target_language_id = learner_update.target_language_id
+    
+    if "preferred_language_id" in learner_update.model_fields_set and learner_update.preferred_language_id:
+        p_val = str(learner_update.preferred_language_id).strip()
+        if p_val and p_val != "null":
+            try:
+                current_learner.preferred_language_id = uuid.UUID(p_val)
+            except ValueError:
+                from sqlalchemy import func
+                p_lang = db.query(models.Language).filter(func.lower(models.Language.code) == p_val.lower()).first()
+                if p_lang:
+                    current_learner.preferred_language_id = p_lang.id
+
+    if "target_language_id" in learner_update.model_fields_set and learner_update.target_language_id:
+        t_val = str(learner_update.target_language_id).strip()
+        if t_val and t_val != "null":
+            try:
+                current_learner.target_language_id = uuid.UUID(t_val)
+            except ValueError:
+                from sqlalchemy import func
+                t_lang = db.query(models.Language).filter(func.lower(models.Language.code) == t_val.lower()).first()
+                if t_lang:
+                    current_learner.target_language_id = t_lang.id
+
     if "preferred_language_code" in learner_update.model_fields_set and learner_update.preferred_language_code:
         from sqlalchemy import func
         p_lang = db.query(models.Language).filter(func.lower(models.Language.code) == learner_update.preferred_language_code.lower()).first()
@@ -41,6 +62,7 @@ def update_user_me(
         t_lang = db.query(models.Language).filter(func.lower(models.Language.code) == learner_update.target_language_code.lower()).first()
         if t_lang:
             current_learner.target_language_id = t_lang.id
+
     if "proficiency_level" in learner_update.model_fields_set and learner_update.proficiency_level is not None:
         current_learner.proficiency_level = learner_update.proficiency_level
     if "learning_goal" in learner_update.model_fields_set and learner_update.learning_goal is not None:
@@ -56,9 +78,17 @@ def update_user_me(
     if "placement_score" in learner_update.model_fields_set and learner_update.placement_score is not None:
         current_learner.placement_score = learner_update.placement_score
 
-    db.commit()
-    db.refresh(current_learner)
-    return current_learner
+    try:
+        db.commit()
+        db.refresh(current_learner)
+        return current_learner
+    except Exception as e:
+        db.rollback()
+        print(f"[ERROR /api/learners/me PUT]: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to update profile: {str(e)}"
+        )
 
 @router.post("/shop/buy", response_model=schemas.LearnerResponse)
 @router.post("/shop/buy/", response_model=schemas.LearnerResponse)

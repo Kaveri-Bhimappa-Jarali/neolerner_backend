@@ -73,8 +73,8 @@ class LearnerCreate(LearnerBase):
 class LearnerUpdate(BaseModel):
     full_name: Optional[str] = None
     age: Optional[int] = None
-    preferred_language_id: Optional[UUID] = None
-    target_language_id: Optional[UUID] = None
+    preferred_language_id: Optional[Union[UUID, str]] = None
+    target_language_id: Optional[Union[UUID, str]] = None
     preferred_language_code: Optional[str] = None
     target_language_code: Optional[str] = None
     proficiency_level: Optional[ProficiencyLevel] = None
