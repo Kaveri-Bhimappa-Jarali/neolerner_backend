@@ -48,6 +48,17 @@ except ImportError:
         def send_verification_email(to_email, code, full_name=""):
             print(f"[EMAIL FALLBACK] Verification code for {to_email}: {code}")
 
+@router.get("/api/auth/register", include_in_schema=False)
+@router.get("/api/auth/register/", include_in_schema=False)
+@router.get("/auth/register", include_in_schema=False)
+@router.get("/auth/register/", include_in_schema=False)
+@router.get("/api/register", include_in_schema=False)
+@router.get("/api/register/", include_in_schema=False)
+@router.get("/register", include_in_schema=False)
+@router.get("/register/", include_in_schema=False)
+def register_info():
+    return {"message": "Registration API endpoint active. Submit a POST request with learner details to register."}
+
 @router.post("/api/auth/register", response_model=schemas.LearnerResponse, status_code=status.HTTP_201_CREATED)
 @router.post("/api/auth/register/", response_model=schemas.LearnerResponse, status_code=status.HTTP_201_CREATED, include_in_schema=False)
 @router.post("/auth/register", response_model=schemas.LearnerResponse, status_code=status.HTTP_201_CREATED, include_in_schema=False)
@@ -120,6 +131,17 @@ def register(learner: schemas.LearnerCreate, db: Session = Depends(database.get_
         db.rollback()
         print(f"[ERROR /api/auth/register]: {e}")
         raise HTTPException(status_code=400, detail=f"Registration failed: {str(e)}")
+
+@router.get("/api/auth/login", include_in_schema=False)
+@router.get("/api/auth/login/", include_in_schema=False)
+@router.get("/auth/login", include_in_schema=False)
+@router.get("/auth/login/", include_in_schema=False)
+@router.get("/api/login", include_in_schema=False)
+@router.get("/api/login/", include_in_schema=False)
+@router.get("/login", include_in_schema=False)
+@router.get("/login/", include_in_schema=False)
+def login_info():
+    return {"message": "Login API endpoint active. Submit a POST request with form-data (username and password) to log in."}
 
 @router.post("/api/auth/login", response_model=schemas.Token)
 @router.post("/api/auth/login/", response_model=schemas.Token, include_in_schema=False)
