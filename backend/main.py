@@ -43,6 +43,17 @@ from routers import (
 
 app = FastAPI(title="Literacy Assistance API & Backend Portal")
 
+@app.middleware("http")
+async def fix_vercel_path_middleware(request: Request, call_next):
+    path = request.scope.get("path", "")
+    if path.startswith("/api/index.py"):
+        new_path = path[13:]
+        if not new_path.startswith("/"):
+            new_path = "/" + new_path
+        request.scope["path"] = new_path
+    response = await call_next(request)
+    return response
+
 # Configure CORS for frontend access
 app.add_middleware(
     CORSMiddleware,
