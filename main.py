@@ -62,24 +62,34 @@ async def fix_vercel_path_and_cors_middleware(request: Request, call_next):
         request.headers.get("x-invoke-path")
     )
     
+    target_path = path
     if forwarded_path and forwarded_path.startswith("/"):
         clean_forwarded = forwarded_path.split("?")[0]
         if clean_forwarded not in ["/api/index.py", "/api/index.py/"]:
-            request.scope["path"] = clean_forwarded
+            target_path = clean_forwarded
     elif path in ["/api/index.py", "/api/index.py/"]:
         if request.method in ["GET", "HEAD", "OPTIONS"]:
-            request.scope["path"] = "/"
+            target_path = "/"
         elif request.method == "POST":
             content_type = request.headers.get("content-type", "")
             if "x-www-form-urlencoded" in content_type:
-                request.scope["path"] = "/api/auth/login"
+                target_path = "/api/auth/login"
             else:
-                request.scope["path"] = "/api/auth/register"
+                target_path = "/api/auth/register"
     elif path.startswith("/api/index.py/"):
-        new_path = path[13:]
-        if not new_path.startswith("/"):
-            new_path = "/" + new_path
-        request.scope["path"] = new_path
+        target_path = path[13:]
+        if not target_path.startswith("/"):
+            target_path = "/" + target_path
+
+    # Dynamic route resolution: map non-/api request paths to /api/<path> if present in app routes
+    registered_paths = {route.path for route in app.routes}
+    if target_path not in registered_paths and (target_path + "/") not in registered_paths:
+        if not target_path.startswith("/api/"):
+            alt_api_path = "/api" + target_path
+            if alt_api_path in registered_paths or (alt_api_path + "/") in registered_paths:
+                target_path = alt_api_path
+
+    request.scope["path"] = target_path
 
     # 2. Intercept OPTIONS preflight requests to guarantee 200/204 CORS response
     if request.method == "OPTIONS":
