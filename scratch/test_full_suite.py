@@ -166,6 +166,29 @@ def test_full_audit_lifecycle():
     assert recheck_a.has_completed_placement_test is True
 
     print("  [OK] All persistent data verified after backend reinvocation!")
+    
+    # TEST 5: Vercel Path Rewrites & Health Check Resolution
+    print("\n[TEST 5] Testing Vercel Path Rewrites and Root Routing...")
+    root_resp = client.get("/")
+    assert root_resp.status_code == 200, f"Root / GET failed: {root_resp.text}"
+    assert root_resp.json()["status"] == "ok"
+
+    health_resp = client.get("/health")
+    assert health_resp.status_code == 200, f"/health GET failed: {health_resp.text}"
+
+    vercel_empty_path = client.get("/api/index.py?__path=")
+    assert vercel_empty_path.status_code == 200, f"Vercel empty __path failed: {vercel_empty_path.text}"
+    assert vercel_empty_path.json()["status"] == "ok"
+
+    vercel_root_path = client.get("/api/index.py?__path=/")
+    assert vercel_root_path.status_code == 200, f"Vercel root __path failed: {vercel_root_path.text}"
+    assert vercel_root_path.json()["status"] == "ok"
+
+    vercel_health_path = client.get("/api/index.py?__path=/health")
+    assert vercel_health_path.status_code == 200, f"Vercel health __path failed: {vercel_health_path.text}"
+    assert vercel_health_path.json()["status"] == "ok"
+    print("  [OK] Vercel rewrites and health check routes all returned 200 OK.")
+
     print("\n" + "=" * 70)
     print("ALL API PERSISTENCE & DATA ISOLATION TESTS PASSED WITH 100% SUCCESS!")
     print("=" * 70)
