@@ -67,7 +67,8 @@ async def fix_vercel_path_and_cors_middleware(request: Request, call_next):
         clean_forwarded = forwarded_path.split("?")[0]
         if clean_forwarded not in ["/api/index.py", "/api/index.py/"]:
             target_path = clean_forwarded
-    elif path in ["/api/index.py", "/api/index.py/"]:
+
+    if target_path in ["/api/index.py", "/api/index.py/"]:
         if request.method in ["GET", "HEAD", "OPTIONS"]:
             target_path = "/"
         elif request.method == "POST":
@@ -76,8 +77,8 @@ async def fix_vercel_path_and_cors_middleware(request: Request, call_next):
                 target_path = "/api/auth/login"
             else:
                 target_path = "/api/auth/register"
-    elif path.startswith("/api/index.py/"):
-        target_path = path[13:]
+    elif target_path.startswith("/api/index.py/"):
+        target_path = target_path[13:]
         if not target_path.startswith("/"):
             target_path = "/" + target_path
 
