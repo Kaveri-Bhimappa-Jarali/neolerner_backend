@@ -89,7 +89,7 @@ class Learner(Base):
     preferred_language_id = Column(Uuid(as_uuid=True), ForeignKey('languages.id'), nullable=True)
     target_language_id = Column(Uuid(as_uuid=True), ForeignKey('languages.id'), nullable=True)
     
-    proficiency_level = Column(Enum(ProficiencyLevel), default=ProficiencyLevel.Beginner)
+    proficiency_level = Column(Enum(ProficiencyLevel, native_enum=False), default=ProficiencyLevel.Beginner)
     predicted_proficiency_score = Column(Float, default=0.0)
     benchmark_level = Column(String, default="Emergent Reader")
     has_completed_placement_test = Column(Boolean, default=False)
@@ -114,7 +114,7 @@ class Learner(Base):
     daily_xp_goal = Column(Integer, default=20)
     daily_xp_earned = Column(Integer, default=0)
     last_goal_completed_date = Column(DateTime(timezone=True), nullable=True)
-    league_tier = Column(Enum(LeagueTier), default=LeagueTier.Bronze)
+    league_tier = Column(Enum(LeagueTier, native_enum=False), default=LeagueTier.Bronze)
     is_admin = Column(Boolean, default=False)
     
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
@@ -135,7 +135,7 @@ class Course(Base):
     title = Column(String, nullable=False)
     description = Column(Text, nullable=True)
     language_id = Column(Uuid(as_uuid=True), ForeignKey('languages.id'), nullable=False)
-    level = Column(Enum(CourseLevel), default=CourseLevel.Beginner)
+    level = Column(Enum(CourseLevel, native_enum=False), default=CourseLevel.Beginner)
     thumbnail_url = Column(String, nullable=True)
     is_published = Column(Boolean, default=True)
     
@@ -199,7 +199,7 @@ class Assessment(Base):
     id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     lesson_id = Column(Uuid(as_uuid=True), ForeignKey('lessons.id'), nullable=False)
     title = Column(String, nullable=False)
-    type = Column(Enum(AssessmentType), default=AssessmentType.quiz)
+    type = Column(Enum(AssessmentType, native_enum=False), default=AssessmentType.quiz)
     pass_percentage = Column(Float, default=70.0)
 
     # Relationships
@@ -220,7 +220,7 @@ class Question(Base):
     id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     assessment_id = Column(Uuid(as_uuid=True), ForeignKey('assessments.id'), nullable=False)
     text = Column(Text, nullable=False)
-    type = Column(Enum(QuestionType), default=QuestionType.multiple_choice)
+    type = Column(Enum(QuestionType, native_enum=False), default=QuestionType.multiple_choice)
     points = Column(Integer, default=1)
     competency_tag = Column(String, default="reading")  # reading, writing, comprehension, listening, speaking, phonics
     difficulty_level = Column(Integer, default=1)  # 1 (Basic/Phonics) to 5 (Advanced Fluency)
@@ -271,7 +271,7 @@ class LearningProgress(Base):
     id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     learner_id = Column(Uuid(as_uuid=True), ForeignKey('learners.id'), nullable=False)
     lesson_id = Column(Uuid(as_uuid=True), ForeignKey('lessons.id'), nullable=False)
-    status = Column(Enum(ProgressStatus), default=ProgressStatus.not_started)
+    status = Column(Enum(ProgressStatus, native_enum=False), default=ProgressStatus.not_started)
     percentage_completed = Column(Float, default=0.0)
     last_accessed = Column(DateTime(timezone=True), default=datetime.utcnow)
 
@@ -353,7 +353,7 @@ class Friendship(Base):
     id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     requester_id = Column(Uuid(as_uuid=True), ForeignKey('learners.id'), nullable=False)
     receiver_id = Column(Uuid(as_uuid=True), ForeignKey('learners.id'), nullable=False)
-    status = Column(Enum(FriendshipStatus), default=FriendshipStatus.pending)
+    status = Column(Enum(FriendshipStatus, native_enum=False), default=FriendshipStatus.pending)
     streak_count = Column(Integer, default=0)
     last_interaction = Column(DateTime(timezone=True), default=datetime.utcnow)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
@@ -388,7 +388,7 @@ class LeagueGroup(Base):
     __tablename__ = "league_groups"
     
     id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    tier = Column(Enum(LeagueTier), default=LeagueTier.Bronze)
+    tier = Column(Enum(LeagueTier, native_enum=False), default=LeagueTier.Bronze)
     week_start = Column(DateTime(timezone=True), nullable=False)
     week_end = Column(DateTime(timezone=True), nullable=False)
     is_settled = Column(Boolean, default=False)
@@ -541,7 +541,7 @@ class TopicMastery(Base):
     id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     learner_id = Column(Uuid(as_uuid=True), ForeignKey('learners.id'), nullable=False)
     topic_id = Column(Uuid(as_uuid=True), ForeignKey('topics.id'), nullable=False)
-    level = Column(Enum(UnitMasteryLevel), default=UnitMasteryLevel.not_started)
+    level = Column(Enum(UnitMasteryLevel, native_enum=False), default=UnitMasteryLevel.not_started)
     legendary_passed = Column(Boolean, default=False)
     score = Column(Float, default=0.0)
     updated_at = Column(DateTime(timezone=True), default=datetime.utcnow)
