@@ -6,7 +6,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
-from fastapi import FastAPI, Depends, Request
+from fastapi import FastAPI, Depends, Request, Response
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -44,14 +44,33 @@ from routers import (
 app = FastAPI(title="Literacy Assistance API & Backend Portal")
 
 @app.middleware("http")
-async def fix_vercel_path_middleware(request: Request, call_next):
+async def fix_vercel_path_and_cors_middleware(request: Request, call_next):
+    # 1. Strip /api/index.py prefix if added by Vercel serverless rewrites
     path = request.scope.get("path", "")
     if path.startswith("/api/index.py"):
         new_path = path[13:]
         if not new_path.startswith("/"):
             new_path = "/" + new_path
         request.scope["path"] = new_path
+
+    # 2. Intercept OPTIONS preflight requests to guarantee 200/204 CORS response
+    if request.method == "OPTIONS":
+        response = Response(status_code=204)
+        origin = request.headers.get("origin", "")
+        response.headers["Access-Control-Allow-Origin"] = origin if origin else "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH"
+        response.headers["Access-Control-Allow-Headers"] = request.headers.get("access-control-request-headers", "*")
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        return response
+
     response = await call_next(request)
+    
+    # 3. Ensure CORS headers on all responses
+    origin = request.headers.get("origin", "")
+    if origin and "Access-Control-Allow-Origin" not in response.headers:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+
     return response
 
 # Configure CORS for frontend access
