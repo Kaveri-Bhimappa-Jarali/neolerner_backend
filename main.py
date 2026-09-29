@@ -15,31 +15,58 @@ import database
 from database import engine, SessionLocal
 import models
 from seed_data import seed_initial_database
-from routers import (
-    auth_router,
-    learner_router,
-    language_router,
-    course_router,
-    assessment_router,
-    progress_router,
-    recommendation_router,
-    admin_router,
-    review_router,
-    db_router,
-    learning_path_router,
-    diagnostic_router,
-    conversation_router,
-    story_router,
-    adventure_router,
-    practice_hub_router,
-    social_router,
-    league_router,
-    guidebook_router,
-    explain_router,
-    speech_router,
-    achievement_router,
-    report_router
-)
+try:
+    from backend.routers import (
+        auth_router,
+        learner_router,
+        language_router,
+        course_router,
+        assessment_router,
+        progress_router,
+        recommendation_router,
+        admin_router,
+        review_router,
+        db_router,
+        learning_path_router,
+        diagnostic_router,
+        conversation_router,
+        story_router,
+        adventure_router,
+        practice_hub_router,
+        social_router,
+        league_router,
+        guidebook_router,
+        explain_router,
+        speech_router,
+        achievement_router,
+        report_router
+    )
+except ImportError:
+    from routers import (
+        auth_router,
+        learner_router,
+        language_router,
+        course_router,
+        assessment_router,
+        progress_router,
+        recommendation_router,
+        admin_router,
+        review_router,
+        db_router,
+        learning_path_router,
+        diagnostic_router,
+        conversation_router,
+        story_router,
+        adventure_router,
+        practice_hub_router,
+        social_router,
+        league_router,
+        guidebook_router,
+        explain_router,
+        speech_router,
+        achievement_router,
+        report_router
+    )
 
 from urllib.parse import parse_qsl
 
@@ -91,6 +118,8 @@ async def fix_vercel_path_and_cors_middleware(request: Request, call_next):
                 target_path = alt_api_path
 
     request.scope["path"] = target_path
+    if "raw_path" in request.scope:
+        request.scope["raw_path"] = target_path.encode("utf-8")
 
     # 2. Intercept OPTIONS preflight requests to guarantee 200/204 CORS response
     if request.method == "OPTIONS":
