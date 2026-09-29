@@ -103,6 +103,9 @@ try:
         **engine_kwargs
     )
 except Exception as e:
+    if raw_env_url:
+        print(f"[CRITICAL ERROR] Failed to connect to PostgreSQL database via DATABASE_URL: {e}")
+        raise e
     print(f"[WARN] Primary database engine creation failed ({e}). Falling back to SQLite.")
     fallback_uri = f"sqlite:///{normalized_db_path}" if os.path.exists(normalized_db_path) else "sqlite:///:memory:"
     engine = create_engine(
@@ -162,7 +165,25 @@ def ensure_tables_created():
             except ImportError:
                 from .seed_data import seed_initial_database
 
-            models.Base.metadata.create_all(bind=engine)
+            # Fast check: If database tables already exist, skip expensive create_all and seeding round-trips
+            tables_exist = False
+            try:
+                with engine.connect() as conn:
+                    conn.execute(text("SELECT 1 FROM languages LIMIT 1;"))
+                    tables_exist = True
+            except Exception:
+                tables_exist = False
+
+            if not tables_exist:
+                print("[INFO] Creating database schema and seeding initial dataset...")
+                models.Base.metadata.create_all(bind=engine)
+                db = SessionLocal()
+                try:
+                    seed_initial_database(db)
+                except Exception as se:
+                    print(f"[WARN] Seed exception in ensure_tables_created: {se}")
+                finally:
+                    db.close()
 
             # Safely verify and add any missing columns for database schema migrations
             try:
@@ -212,13 +233,6 @@ def ensure_tables_created():
             except Exception as schema_err:
                 print(f"[WARN] Column migration check exception: {schema_err}")
 
-            db = SessionLocal()
-            try:
-                seed_initial_database(db)
-            except Exception as se:
-                print(f"[WARN] Seed exception in ensure_tables_created: {se}")
-            finally:
-                db.close()
             _tables_initialized = True
         except Exception as e:
             print(f"[WARN] Table creation check warning: {e}")
