@@ -50,21 +50,13 @@ else:
 normalized_db_path = os.path.abspath(DB_PATH).replace("\\", "/")
 SQLALCHEMY_DATABASE_URL = raw_env_url if raw_env_url else f"sqlite:///{normalized_db_path}"
 
-# Standardize postgres scheme for SQLAlchemy 1.4/2.0 compatibility
+# Standardize postgres scheme for SQLAlchemy 1.4/2.0 compatibility and pure-python pg8000 driver
 if SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
-    SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgres://", "postgresql://", 1)
-
-# Ensure PostgreSQL driver compatibility for serverless runtimes (prefer pure-python pg8000)
-if SQLALCHEMY_DATABASE_URL.startswith("postgresql://") and "+" not in SQLALCHEMY_DATABASE_URL.split("://")[0]:
-    try:
-        import pg8000
-        SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgresql://", "postgresql+pg8000://", 1)
-    except ImportError:
-        try:
-            import psycopg2
-            SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
-        except ImportError:
-            SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgresql://", "postgresql+pg8000://", 1)
+    SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgres://", "postgresql+pg8000://", 1)
+elif SQLALCHEMY_DATABASE_URL.startswith("postgresql://"):
+    SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgresql://", "postgresql+pg8000://", 1)
+elif "postgresql+psycopg2://" in SQLALCHEMY_DATABASE_URL:
+    SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgresql+psycopg2://", "postgresql+pg8000://", 1)
 
 
 # Configure connection parameters for SQLite vs PostgreSQL
