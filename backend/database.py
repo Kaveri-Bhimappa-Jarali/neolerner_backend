@@ -56,15 +56,26 @@ if SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
 
 # Ensure PostgreSQL driver compatibility for serverless runtimes with robust fallback
 if SQLALCHEMY_DATABASE_URL.startswith("postgresql://") and "+" not in SQLALCHEMY_DATABASE_URL.split("://")[0]:
-    try:
-        import psycopg2
-        SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
-    except ImportError:
+    if IS_SERVERLESS_OR_READONLY:
         try:
             import pg8000
             SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgresql://", "postgresql+pg8000://", 1)
         except ImportError:
-            pass
+            try:
+                import psycopg2
+                SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
+            except ImportError:
+                pass
+    else:
+        try:
+            import psycopg2
+            SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
+        except ImportError:
+            try:
+                import pg8000
+                SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgresql://", "postgresql+pg8000://", 1)
+            except ImportError:
+                pass
 
 
 # Configure connection parameters for SQLite vs PostgreSQL
