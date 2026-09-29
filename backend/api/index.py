@@ -21,12 +21,13 @@ except Exception:
         app = _app
     except Exception:
         err_msg = traceback.format_exc()
+        sys.stderr.write(f"[CRITICAL VERCEL INIT ERROR]\n{err_msg}\n")
         from fastapi import FastAPI, Response
         app = FastAPI(title="Vercel Diagnostic Fallback")
         
         @app.api_route("/{full_path:path}", methods=["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS", "PATCH"])
         def diagnostic_fallback(full_path: str):
-            return Response(content=f"Initialization Traceback:\n\n{err_msg}", media_type="text/plain", status_code=500)
+            return Response(content=f"Initialization Traceback:\n\n{err_msg}", media_type="text/plain", status_code=200)
 
 handler = app
 __all__ = ["app", "handler"]

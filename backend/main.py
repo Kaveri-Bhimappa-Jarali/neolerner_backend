@@ -164,6 +164,17 @@ app.add_middleware(
 
 HEALTH_METHODS = ["GET", "HEAD", "OPTIONS"]
 
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    import traceback
+    err_tb = traceback.format_exc()
+    print(f"[ERROR] Unhandled Exception on {request.method} {request.url.path}: {exc}\n{err_tb}", flush=True)
+    return Response(
+        content=f"Internal Server Error: {exc}\n\n{err_tb}",
+        media_type="text/plain",
+        status_code=500
+    )
+
 @app.api_route("/", methods=HEALTH_METHODS)
 @app.api_route("/health", methods=HEALTH_METHODS, include_in_schema=False)
 @app.api_route("/api/health", methods=HEALTH_METHODS, include_in_schema=False)
