@@ -79,54 +79,49 @@ app = FastAPI(title="Literacy Assistance API & Backend Portal")
 
 @app.middleware("http")
 async def fix_vercel_path_and_cors_middleware(request: Request, call_next):
-    path = request.scope.get("path", "")
-    
-    # Extract query param __path forwarded by vercel.json rewrite
-    query_string = request.scope.get("query_string", b"").decode("utf-8")
-    query_params = dict(parse_qsl(query_string))
-    vercel_path = query_params.get("__path")
-    
-    forwarded_path = (
-        vercel_path or
-        request.headers.get("x-forwarded-uri") or
-        request.headers.get("x-original-uri") or
-        request.headers.get("x-url") or
-        request.headers.get("x-invoke-path")
-    )
-    
-    target_path = path
-    if forwarded_path and forwarded_path.startswith("/"):
-        clean_forwarded = forwarded_path.split("?")[0]
-        if clean_forwarded not in ["/api/index.py", "/api/index.py/"]:
-            target_path = clean_forwarded
+    try:
+        path = request.scope.get("path", "")
+        
+        # Extract query param __path forwarded by vercel.json rewrite
+        query_string = request.scope.get("query_string", b"").decode("utf-8")
+        query_params = dict(parse_qsl(query_string))
+        vercel_path = query_params.get("__path")
+        
+        forwarded_path = (
+            vercel_path or
+            request.headers.get("x-forwarded-uri") or
+            request.headers.get("x-original-uri") or
+            request.headers.get("x-url") or
+            request.headers.get("x-invoke-path")
+        )
+        
+        target_path = path
+        if forwarded_path and forwarded_path.startswith("/"):
+            clean_forwarded = forwarded_path.split("?")[0]
+            if clean_forwarded not in ["/api/index.py", "/api/index.py/"]:
+                target_path = clean_forwarded
 
-    if target_path in ["/api/index.py", "/api/index.py/"]:
-        if request.method in ["GET", "HEAD", "OPTIONS"]:
-            target_path = "/"
-        elif request.method == "POST":
-            content_type = request.headers.get("content-type", "")
-            if "x-www-form-urlencoded" in content_type:
-                target_path = "/api/auth/login"
-            else:
-                target_path = "/api/auth/register"
-    elif target_path.startswith("/api/index.py/"):
-        target_path = target_path[13:]
-        if not target_path.startswith("/"):
-            target_path = "/" + target_path
+        if target_path in ["/api/index.py", "/api/index.py/"]:
+            if request.method in ["GET", "HEAD", "OPTIONS"]:
+                target_path = "/"
+            elif request.method == "POST":
+                content_type = request.headers.get("content-type", "")
+                if "x-www-form-urlencoded" in content_type:
+                    target_path = "/api/auth/login"
+                else:
+                    target_path = "/api/auth/register"
+        elif target_path.startswith("/api/index.py/"):
+            target_path = target_path[13:]
+            if not target_path.startswith("/"):
+                target_path = "/" + target_path
 
-    # Dynamic route resolution: map non-/api request paths to /api/<path> if present in app routes
-    registered_paths = {getattr(route, 'path', '') for route in app.routes if hasattr(route, 'path')}
-    if target_path not in registered_paths and (target_path + "/") not in registered_paths:
-        if not target_path.startswith("/api/"):
-            alt_api_path = "/api" + target_path
-            if alt_api_path in registered_paths or (alt_api_path + "/") in registered_paths:
-                target_path = alt_api_path
+        request.scope["path"] = target_path
+        if "raw_path" in request.scope:
+            request.scope["raw_path"] = target_path.encode("utf-8")
+    except Exception as e:
+        print(f"[WARN] Path rewrite middleware exception: {e}")
 
-    request.scope["path"] = target_path
-    if "raw_path" in request.scope:
-        request.scope["raw_path"] = target_path.encode("utf-8")
-
-    # 2. Intercept OPTIONS preflight requests to guarantee 200/204 CORS response
+    # Intercept OPTIONS preflight requests to guarantee 200/204 CORS response
     if request.method == "OPTIONS":
         response = Response(status_code=204)
         origin = request.headers.get("origin", "")
