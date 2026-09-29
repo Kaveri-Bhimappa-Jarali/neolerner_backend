@@ -98,27 +98,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.middleware("http")
-async def vercel_path_resolver_middleware(request: Request, call_next):
-    # Check headers sent by Vercel serverless proxy when rewriting URLs
-    original_path = (
-        request.headers.get("x-rewrite-url")
-        or request.headers.get("x-invoke-path")
-        or request.headers.get("x-original-uri")
-        or request.headers.get("x-forwarded-uri")
-    )
-    if not original_path:
-        matched = request.headers.get("x-matched-path")
-        if matched and not matched.endswith("/api/index") and not matched.endswith("/api/index.py"):
-            original_path = matched
-
-    if original_path:
-        clean_path = original_path.split("?")[0]
-        if clean_path and clean_path != request.scope.get("path"):
-            request.scope["path"] = clean_path
-
-    return await call_next(request)
-
 HEALTH_METHODS = ["GET", "HEAD", "OPTIONS"]
 
 @app.exception_handler(Exception)
