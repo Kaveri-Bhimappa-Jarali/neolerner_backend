@@ -1,7 +1,7 @@
 import os
 import sys
+import traceback
 
-# Dynamically find root directory containing 'backend' folder
 current_file_dir = os.path.dirname(os.path.abspath(__file__))
 cwd = os.getcwd()
 
@@ -23,7 +23,6 @@ if not root_dir:
 
 backend_dir = os.path.join(root_dir, "backend")
 
-# Ensure backend_dir and root_dir are at sys.path positions 0 and 1
 for path in [root_dir, backend_dir]:
     if os.path.exists(path):
         if path in sys.path:
@@ -31,12 +30,16 @@ for path in [root_dir, backend_dir]:
         sys.path.insert(0, path)
 
 try:
-    from backend.main import app
-except ImportError:
-    try:
-        from main import app
-    except ImportError:
-        import main
-        app = getattr(main, "app", main)
+    from backend.main import app as _app
+    app = _app
+except Exception as exc:
+    err_msg = traceback.format_exc()
+    from fastapi import FastAPI, Response
+    app = FastAPI(title="Vercel Diagnostic Fallback")
+    
+    @app.api_route("/{full_path:path}", methods=["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS", "PATCH"])
+    def diagnostic_fallback(full_path: str):
+        return Response(content=f"Initialization Traceback:\n\n{err_msg}", media_type="text/plain", status_code=500)
 
-app = app
+handler = app
+__all__ = ["app", "handler"]
