@@ -98,6 +98,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.middleware("http")
+async def vercel_path_resolver_middleware(request: Request, call_next):
+    # Check headers sent by Vercel serverless proxy when rewriting URLs
+    original_path = (
+        request.headers.get("x-matched-path")
+        or request.headers.get("x-rewrite-url")
+        or request.headers.get("x-original-uri")
+    )
+    if original_path:
+        clean_path = original_path.split("?")[0]
+        if clean_path and clean_path != request.scope.get("path"):
+            request.scope["path"] = clean_path
+
+    return await call_next(request)
+
 HEALTH_METHODS = ["GET", "HEAD", "OPTIONS"]
 
 @app.exception_handler(Exception)
@@ -115,6 +130,8 @@ async def global_exception_handler(request: Request, exc: Exception):
 @app.api_route("/health", methods=HEALTH_METHODS, include_in_schema=False)
 @app.api_route("/api/health", methods=HEALTH_METHODS, include_in_schema=False)
 @app.api_route("/api/index.py", methods=HEALTH_METHODS, include_in_schema=False)
+@app.api_route("/api/index", methods=HEALTH_METHODS, include_in_schema=False)
+@app.api_route("/api", methods=HEALTH_METHODS, include_in_schema=False)
 def health_check():
     """Health check endpoint for cloud hosting platforms (Render, Vercel, Railway)."""
     return {"status": "ok", "service": "NeoLearner Backend API"}
