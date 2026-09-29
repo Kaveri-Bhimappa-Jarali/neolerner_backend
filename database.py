@@ -99,15 +99,16 @@ try:
         **engine_kwargs
     )
 except Exception as e:
-    if raw_env_url:
-        print(f"[CRITICAL ERROR] Failed to connect to PostgreSQL database via DATABASE_URL: {e}")
-        raise e
-    print(f"[WARN] Primary database engine creation failed ({e}). Falling back to SQLite.")
-    fallback_uri = f"sqlite:///{normalized_db_path}" if os.path.exists(normalized_db_path) else "sqlite:///:memory:"
-    engine = create_engine(
-        fallback_uri,
-        connect_args={"check_same_thread": False, "timeout": 30}
-    )
+    print(f"[WARN] Primary database engine creation with kwargs failed ({e}). Retrying standard engine creation...")
+    try:
+        engine = create_engine(SQLALCHEMY_DATABASE_URL, pool_pre_ping=True)
+    except Exception as inner_e:
+        print(f"[WARN] Database engine creation failed ({inner_e}). Falling back to SQLite.")
+        fallback_uri = f"sqlite:///{normalized_db_path}" if os.path.exists(normalized_db_path) else "sqlite:///:memory:"
+        engine = create_engine(
+            fallback_uri,
+            connect_args={"check_same_thread": False, "timeout": 30}
+        )
 
 # Configure SQLite PRAGMAs for concurrent execution and performance
 if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
