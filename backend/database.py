@@ -58,6 +58,7 @@ except Exception:
     ssl_ctx = None
 
 def build_database_url_and_engine(raw_url):
+    import sqlalchemy
     if not raw_url or not isinstance(raw_url, str):
         fallback_path = os.path.abspath(DB_PATH).replace("\\", "/")
         fallback_uri = f"sqlite:///{fallback_path}"
@@ -71,19 +72,39 @@ def build_database_url_and_engine(raw_url):
     scheme_end = raw_url.find("://")
     rest = raw_url[scheme_end + 3:] if scheme_end != -1 else raw_url
 
-    # Ensure Supabase pooler username includes project tenant ID if connecting to pooler.supabase.com
-    if "pooler.supabase.com" in rest:
-        user_host_parts = rest.split("@")
-        if len(user_host_parts) >= 2 and "uqczqaycmdltsjfpexlb" not in user_host_parts[0]:
-            if rest.startswith("postgres:"):
-                rest = rest.replace("postgres:", "postgres.uqczqaycmdltsjfpexlb:", 1)
+    candidate_configs = []
 
-    # Candidate dialect URLs in order of preference (pg8000 pure-python, psycopg3, standard postgresql)
-    candidate_configs = [
-        ("postgresql+pg8000://" + rest, {"ssl_context": ssl_ctx, "timeout": 10} if ssl_ctx else {"timeout": 10}),
-        ("postgresql+psycopg://" + rest, {"timeout": 10}),
-        ("postgresql://" + rest, {"timeout": 10})
-    ]
+    # 1. If host is Supabase, build direct database hostname URL (db.uqczqaycmdltsjfpexlb.supabase.co:5432)
+    if "uqczqaycmdltsjfpexlb" in rest or "supabase" in rest:
+        user_pass_and_host = rest.split("@")
+        if len(user_pass_and_host) >= 2:
+            creds = user_pass_and_host[0]
+            if creds.startswith("postgres.uqczqaycmdltsjfpexlb:"):
+                creds = "postgres:" + creds[len("postgres.uqczqaycmdltsjfpexlb:"):]
+            
+            direct_rest = f"{creds}@db.uqczqaycmdltsjfpexlb.supabase.co:5432/postgres"
+            candidate_configs.append(
+                ("postgresql+pg8000://" + direct_rest, {"ssl_context": ssl_ctx, "timeout": 10} if ssl_ctx else {"timeout": 10})
+            )
+            candidate_configs.append(
+                ("postgresql+psycopg://" + direct_rest, {"timeout": 10})
+            )
+
+    # 2. Add pooler / standard connection URL variations as fallbacks
+    pooler_rest = rest
+    if "pooler.supabase.com" in pooler_rest and "uqczqaycmdltsjfpexlb" not in pooler_rest.split("@")[0]:
+        if pooler_rest.startswith("postgres:"):
+            pooler_rest = pooler_rest.replace("postgres:", "postgres.uqczqaycmdltsjfpexlb:", 1)
+
+    candidate_configs.append(
+        ("postgresql+pg8000://" + pooler_rest, {"ssl_context": ssl_ctx, "timeout": 10} if ssl_ctx else {"timeout": 10})
+    )
+    candidate_configs.append(
+        ("postgresql+psycopg://" + pooler_rest, {"timeout": 10})
+    )
+    candidate_configs.append(
+        ("postgresql://" + pooler_rest, {"timeout": 10})
+    )
 
     for target_url, c_args in candidate_configs:
         try:
@@ -96,9 +117,13 @@ def build_database_url_and_engine(raw_url):
                 pool_recycle=300,
                 pool_timeout=30
             )
+            # Actively test connection before returning engine
+            with eng.connect() as conn:
+                conn.execute(sqlalchemy.text("SELECT 1"))
+            print(f"[INFO] Successfully initialized verified PostgreSQL engine ({target_url[:35]}...)")
             return eng, target_url
         except Exception as e:
-            print(f"[WARN] Engine creation failed for {target_url[:30]}... ({e})")
+            print(f"[WARN] Engine creation / test failed for {target_url[:35]}... ({e})")
 
     # Fallback to local SQLite if remote PostgreSQL creation fails completely
     norm_path = os.path.abspath(DB_PATH).replace("\\", "/")
