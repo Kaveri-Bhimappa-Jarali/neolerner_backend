@@ -115,7 +115,7 @@ async def fix_vercel_path_and_cors_middleware(request: Request, call_next):
             target_path = "/" + target_path
 
     # Dynamic route resolution: map non-/api request paths to /api/<path> if present in app routes
-    registered_paths = {route.path for route in app.routes}
+    registered_paths = {getattr(route, 'path', '') for route in app.routes if hasattr(route, 'path')}
     if target_path not in registered_paths and (target_path + "/") not in registered_paths:
         if not target_path.startswith("/api/"):
             alt_api_path = "/api" + target_path
