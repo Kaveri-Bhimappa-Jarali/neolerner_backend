@@ -47,73 +47,65 @@ else:
     DB_PATH = ORIGINAL_DB_PATH
 
 # Normalize path for cross-platform SQLite URI format
-normalized_db_path = os.path.abspath(DB_PATH).replace("\\", "/")
-SQLALCHEMY_DATABASE_URL = raw_env_url if raw_env_url else f"sqlite:///{normalized_db_path}"
-
-# Standardize postgres scheme for SQLAlchemy 1.4/2.0 compatibility and pure-python pg8000 driver
-if raw_env_url and "postgres" in raw_env_url.lower():
-    scheme_end = raw_env_url.find("://")
-    if scheme_end != -1:
-        SQLALCHEMY_DATABASE_URL = "postgresql+pg8000://" + raw_env_url[scheme_end + 3:]
-    else:
-        SQLALCHEMY_DATABASE_URL = raw_env_url
-elif SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
-    SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgres://", "postgresql+pg8000://", 1)
-elif SQLALCHEMY_DATABASE_URL.startswith("postgresql://"):
-    SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgresql://", "postgresql+pg8000://", 1)
-
-# Ensure Supabase pooler username includes project tenant ID if missing
-if "pooler.supabase.com" in SQLALCHEMY_DATABASE_URL and "uqczqaycmdltsjfpexlb" not in SQLALCHEMY_DATABASE_URL.split("@")[0]:
-    if "://postgres:" in SQLALCHEMY_DATABASE_URL:
-        SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("://postgres:", "://postgres.uqczqaycmdltsjfpexlb:", 1)
-
-
-# Configure connection parameters for SQLite vs PostgreSQL
-is_sqlite = SQLALCHEMY_DATABASE_URL.startswith("sqlite")
-is_pg8000 = "pg8000" in SQLALCHEMY_DATABASE_URL
-
-connect_args = {}
-if is_sqlite:
-    connect_args = {"check_same_thread": False, "timeout": 30}
-elif is_pg8000:
-    try:
-        import ssl
-        ssl_ctx = ssl.create_default_context()
-        ssl_ctx.check_hostname = False
-        ssl_ctx.verify_mode = ssl.CERT_NONE
-        connect_args = {"ssl_context": ssl_ctx, "timeout": 10}
-    except Exception:
-        connect_args = {"timeout": 10}
-
-engine_kwargs = {
-    "connect_args": connect_args,
-    "pool_pre_ping": True,
-}
-
-if not is_sqlite:
-    engine_kwargs.update({
-        "pool_size": 5,
-        "max_overflow": 10,
-        "pool_recycle": 300,
-        "pool_timeout": 30,
-    })
-
+# Configure SSL context for PostgreSQL / Supabase pooler connections
+ssl_ctx = None
 try:
-    engine = create_engine(
-        SQLALCHEMY_DATABASE_URL,
-        **engine_kwargs
-    )
-except Exception as e:
-    print(f"[WARN] Primary database engine creation with kwargs failed ({e}). Retrying standard engine creation...")
-    try:
-        engine = create_engine(SQLALCHEMY_DATABASE_URL, pool_pre_ping=True)
-    except Exception as inner_e:
-        print(f"[WARN] Database engine creation failed ({inner_e}). Falling back to SQLite.")
-        fallback_uri = f"sqlite:///{normalized_db_path}" if os.path.exists(normalized_db_path) else "sqlite:///:memory:"
-        engine = create_engine(
-            fallback_uri,
-            connect_args={"check_same_thread": False, "timeout": 30}
-        )
+    import ssl
+    ssl_ctx = ssl.create_default_context()
+    ssl_ctx.check_hostname = False
+    ssl_ctx.verify_mode = ssl.CERT_NONE
+except Exception:
+    ssl_ctx = None
+
+def build_database_url_and_engine(raw_url):
+    if not raw_url or not isinstance(raw_url, str):
+        fallback_path = os.path.abspath(DB_PATH).replace("\\", "/")
+        fallback_uri = f"sqlite:///{fallback_path}"
+        return create_engine(fallback_uri, connect_args={"check_same_thread": False, "timeout": 30}), fallback_uri
+
+    if "postgres" not in raw_url.lower():
+        norm_path = os.path.abspath(DB_PATH).replace("\\", "/")
+        return create_engine(f"sqlite:///{norm_path}", connect_args={"check_same_thread": False, "timeout": 30}), f"sqlite:///{norm_path}"
+
+    # Extract rest of URL after scheme (://)
+    scheme_end = raw_url.find("://")
+    rest = raw_url[scheme_end + 3:] if scheme_end != -1 else raw_url
+
+    # Ensure Supabase pooler username includes project tenant ID if connecting to pooler.supabase.com
+    if "pooler.supabase.com" in rest:
+        user_host_parts = rest.split("@")
+        if len(user_host_parts) >= 2 and "uqczqaycmdltsjfpexlb" not in user_host_parts[0]:
+            if rest.startswith("postgres:"):
+                rest = rest.replace("postgres:", "postgres.uqczqaycmdltsjfpexlb:", 1)
+
+    # Candidate dialect URLs in order of preference (pg8000 pure-python, psycopg3, standard postgresql)
+    candidate_configs = [
+        ("postgresql+pg8000://" + rest, {"ssl_context": ssl_ctx, "timeout": 10} if ssl_ctx else {"timeout": 10}),
+        ("postgresql+psycopg://" + rest, {"timeout": 10}),
+        ("postgresql://" + rest, {"timeout": 10})
+    ]
+
+    for target_url, c_args in candidate_configs:
+        try:
+            eng = create_engine(
+                target_url,
+                connect_args=c_args,
+                pool_pre_ping=True,
+                pool_size=5,
+                max_overflow=10,
+                pool_recycle=300,
+                pool_timeout=30
+            )
+            return eng, target_url
+        except Exception as e:
+            print(f"[WARN] Engine creation failed for {target_url[:30]}... ({e})")
+
+    # Fallback to local SQLite if remote PostgreSQL creation fails completely
+    norm_path = os.path.abspath(DB_PATH).replace("\\", "/")
+    fallback_uri = f"sqlite:///{norm_path}" if os.path.exists(norm_path) else "sqlite:///:memory:"
+    return create_engine(fallback_uri, connect_args={"check_same_thread": False, "timeout": 30}), fallback_uri
+
+engine, SQLALCHEMY_DATABASE_URL = build_database_url_and_engine(raw_env_url)
 
 # Configure SQLite PRAGMAs for concurrent execution and performance
 if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
