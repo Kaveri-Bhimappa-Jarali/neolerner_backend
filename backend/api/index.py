@@ -1,21 +1,20 @@
 import os
 import sys
-import pg8000  # Explicit entrypoint import for Vercel dependency bundling
 
-# Ensure root directory is in sys.path
-root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if os.path.exists(root_dir) and root_dir not in sys.path:
-    sys.path.insert(0, root_dir)
+api_dir = os.path.dirname(os.path.abspath(__file__))
+backend_dir = os.path.dirname(api_dir)
+root_dir = os.path.dirname(backend_dir)
+
+for path in [backend_dir, root_dir, api_dir]:
+    if os.path.exists(path):
+        if path in sys.path:
+            sys.path.remove(path)
+        sys.path.insert(0, path)
 
 try:
-    from main import app
+    from backend.main import app
 except ImportError:
-    try:
-        from backend.main import app
-    except ImportError:
-        import main
-        app = main.app
+    from main import app
 
 handler = app
-
 __all__ = ["app", "handler"]
