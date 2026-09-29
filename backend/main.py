@@ -3,8 +3,9 @@ import sys
 
 # Ensure backend directory is in sys.path for direct uvicorn execution from root or backend directory
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-if BASE_DIR not in sys.path:
-    sys.path.insert(0, BASE_DIR)
+if BASE_DIR in sys.path:
+    sys.path.remove(BASE_DIR)
+sys.path.insert(0, BASE_DIR)
 
 from fastapi import FastAPI, Depends, Request, Response
 from fastapi.responses import HTMLResponse, FileResponse

@@ -1,18 +1,18 @@
 import os
 import sys
 
-# Ensure root and backend directories are in sys.path
+# Ensure backend directory is at sys.path[0] and root directory is at sys.path[1]
 root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 backend_dir = os.path.join(root_dir, "backend")
 
-if root_dir not in sys.path:
-    sys.path.insert(0, root_dir)
-if backend_dir not in sys.path:
-    sys.path.insert(0, backend_dir)
+if backend_dir in sys.path:
+    sys.path.remove(backend_dir)
+sys.path.insert(0, backend_dir)
 
-try:
-    from backend.main import app
-except ImportError:
-    from main import app
+if root_dir in sys.path:
+    sys.path.remove(root_dir)
+sys.path.insert(1, root_dir)
+
+from backend.main import app
 
 app = app
