@@ -62,6 +62,11 @@ elif SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
 elif SQLALCHEMY_DATABASE_URL.startswith("postgresql://"):
     SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgresql://", "postgresql+pg8000://", 1)
 
+# Ensure Supabase pooler username includes project tenant ID if missing
+if "pooler.supabase.com" in SQLALCHEMY_DATABASE_URL and "uqczqaycmdltsjfpexlb" not in SQLALCHEMY_DATABASE_URL.split("@")[0]:
+    if "://postgres:" in SQLALCHEMY_DATABASE_URL:
+        SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("://postgres:", "://postgres.uqczqaycmdltsjfpexlb:", 1)
+
 
 # Configure connection parameters for SQLite vs PostgreSQL
 is_sqlite = SQLALCHEMY_DATABASE_URL.startswith("sqlite")
