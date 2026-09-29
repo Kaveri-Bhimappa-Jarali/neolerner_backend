@@ -76,9 +76,9 @@ elif is_pg8000:
         ssl_ctx = ssl.create_default_context()
         ssl_ctx.check_hostname = False
         ssl_ctx.verify_mode = ssl.CERT_NONE
-        connect_args = {"ssl_context": ssl_ctx}
+        connect_args = {"ssl_context": ssl_ctx, "timeout": 10}
     except Exception:
-        connect_args = {}
+        connect_args = {"timeout": 10}
 
 engine_kwargs = {
     "connect_args": connect_args,
