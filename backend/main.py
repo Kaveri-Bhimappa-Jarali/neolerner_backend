@@ -77,70 +77,6 @@ from urllib.parse import parse_qsl
 
 app = FastAPI(title="Literacy Assistance API & Backend Portal")
 
-@app.middleware("http")
-async def fix_vercel_path_and_cors_middleware(request: Request, call_next):
-    try:
-        path = request.scope.get("path", "")
-        
-        # Extract query param __path forwarded by vercel.json rewrite
-        query_string = request.scope.get("query_string", b"").decode("utf-8")
-        query_params = dict(parse_qsl(query_string))
-        vercel_path = query_params.get("__path")
-        
-        forwarded_path = (
-            vercel_path or
-            request.headers.get("x-forwarded-uri") or
-            request.headers.get("x-original-uri") or
-            request.headers.get("x-url") or
-            request.headers.get("x-invoke-path")
-        )
-        
-        target_path = path
-        if forwarded_path and forwarded_path.startswith("/"):
-            clean_forwarded = forwarded_path.split("?")[0]
-            if clean_forwarded not in ["/api/index.py", "/api/index.py/"]:
-                target_path = clean_forwarded
-
-        if target_path in ["/api/index.py", "/api/index.py/"]:
-            if request.method in ["GET", "HEAD", "OPTIONS"]:
-                target_path = "/"
-            elif request.method == "POST":
-                content_type = request.headers.get("content-type", "")
-                if "x-www-form-urlencoded" in content_type:
-                    target_path = "/api/auth/login"
-                else:
-                    target_path = "/api/auth/register"
-        elif target_path.startswith("/api/index.py/"):
-            target_path = target_path[13:]
-            if not target_path.startswith("/"):
-                target_path = "/" + target_path
-
-        request.scope["path"] = target_path
-        if "raw_path" in request.scope:
-            request.scope["raw_path"] = target_path.encode("utf-8")
-    except Exception as e:
-        print(f"[WARN] Path rewrite middleware exception: {e}")
-
-    # Intercept OPTIONS preflight requests to guarantee 200/204 CORS response
-    if request.method == "OPTIONS":
-        response = Response(status_code=204)
-        origin = request.headers.get("origin", "")
-        response.headers["Access-Control-Allow-Origin"] = origin if origin else "*"
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH"
-        response.headers["Access-Control-Allow-Headers"] = request.headers.get("access-control-request-headers", "*")
-        response.headers["Access-Control-Allow-Credentials"] = "true"
-        return response
-
-    response = await call_next(request)
-    
-    # 3. Ensure CORS headers on all responses
-    origin = request.headers.get("origin", "")
-    if origin and "Access-Control-Allow-Origin" not in response.headers:
-        response.headers["Access-Control-Allow-Origin"] = origin
-        response.headers["Access-Control-Allow-Credentials"] = "true"
-
-    return response
-
 # Configure CORS for frontend access
 app.add_middleware(
     CORSMiddleware,
@@ -178,6 +114,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 @app.api_route("/", methods=HEALTH_METHODS)
 @app.api_route("/health", methods=HEALTH_METHODS, include_in_schema=False)
 @app.api_route("/api/health", methods=HEALTH_METHODS, include_in_schema=False)
+@app.api_route("/api/index.py", methods=HEALTH_METHODS, include_in_schema=False)
 def health_check():
     """Health check endpoint for cloud hosting platforms (Render, Vercel, Railway)."""
     return {"status": "ok", "service": "NeoLearner Backend API"}
