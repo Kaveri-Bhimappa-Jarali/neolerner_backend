@@ -24,6 +24,3 @@ dependencies = [
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["backend*", "api*"]
-
-[tool.vercel]
-entrypoint = "main:app"
