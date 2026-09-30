@@ -118,11 +118,10 @@ def health_check():
     """Health check endpoint for cloud hosting platforms (Render, Vercel, Railway)."""
     return {"status": "ok", "service": "NeoLearner Backend API"}
 
-@app.api_route("/api/test-post", methods=["GET", "POST"])
-def test_post_endpoint(request: Request):
+@app.api_route("/{full_path:path}", methods=["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"])
+def catch_all_debug(request: Request, full_path: str):
     return {
-        "status": "ok",
-        "message": "POST test endpoint working cleanly",
+        "full_path": full_path,
         "method": request.method,
         "path": request.url.path,
         "scope_path": request.scope.get("path"),
