@@ -127,15 +127,6 @@ def health_check():
     """Health check endpoint for cloud hosting platforms (Render, Vercel, Railway)."""
     return {"status": "ok", "service": "NeoLearner Backend API"}
 
-@app.api_route("/api/debug-headers", methods=["GET", "POST"])
-def debug_headers(request: Request):
-    return {
-        "method": request.method,
-        "path": request.url.path,
-        "scope_path": request.scope.get("path"),
-        "headers": dict(request.headers)
-    }
-
 # Register Routers
 app.include_router(auth_router.router)
 app.include_router(learner_router.router)
