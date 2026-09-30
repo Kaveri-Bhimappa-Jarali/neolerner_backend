@@ -127,12 +127,17 @@ async def global_exception_handler(request: Request, exc: Exception):
         status_code=500
     )
 
-@app.api_route("/", methods=HEALTH_METHODS)
+@app.api_route("/", methods=["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"])
 @app.api_route("/health", methods=HEALTH_METHODS, include_in_schema=False)
 @app.api_route("/api/health", methods=HEALTH_METHODS, include_in_schema=False)
-def health_check():
-    """Health check endpoint for cloud hosting platforms (Render, Vercel, Railway)."""
-    return {"status": "ok", "service": "NeoLearner Backend API"}
+def inspect_vercel_request(request: Request):
+    return {
+        "method": request.method,
+        "path": request.url.path,
+        "scope_path": request.scope.get("path"),
+        "scope_root_path": request.scope.get("root_path"),
+        "headers": dict(request.headers)
+    }
 
 @app.api_route("/api/debug-headers", methods=["GET", "POST"])
 def debug_headers(request: Request):
