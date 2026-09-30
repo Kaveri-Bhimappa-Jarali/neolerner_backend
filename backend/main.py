@@ -98,6 +98,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.middleware("http")
+async def vercel_path_resolver_middleware(request: Request, call_next):
+    path_param = request.query_params.get("path")
+    if path_param:
+        clean_path = path_param.split("?")[0]
+        if clean_path:
+            request.scope["path"] = clean_path
+    return await call_next(request)
+
 HEALTH_METHODS = ["GET", "HEAD", "OPTIONS"]
 
 @app.exception_handler(Exception)
@@ -117,16 +126,6 @@ async def global_exception_handler(request: Request, exc: Exception):
 def health_check():
     """Health check endpoint for cloud hosting platforms (Render, Vercel, Railway)."""
     return {"status": "ok", "service": "NeoLearner Backend API"}
-
-@app.api_route("/{full_path:path}", methods=["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"])
-def catch_all_debug(request: Request, full_path: str):
-    return {
-        "full_path": full_path,
-        "method": request.method,
-        "path": request.url.path,
-        "scope_path": request.scope.get("path"),
-        "headers": dict(request.headers)
-    }
 
 @app.api_route("/api/debug-headers", methods=["GET", "POST"])
 def debug_headers(request: Request):
