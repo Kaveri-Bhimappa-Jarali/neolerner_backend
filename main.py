@@ -75,7 +75,7 @@ except ImportError:
 
 from urllib.parse import parse_qsl
 
-app = FastAPI(title="Literacy Assistance API & Backend Portal")
+app = FastAPI(title="Literacy Assistance API & Backend Portal", version="1.0.1")
 
 # Configure CORS for frontend access
 app.add_middleware(
