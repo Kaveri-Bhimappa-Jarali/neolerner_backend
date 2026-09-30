@@ -7,17 +7,15 @@ backend_dir = os.path.dirname(api_dir)
 root_dir = os.path.dirname(backend_dir)
 
 for path in [backend_dir, root_dir, api_dir]:
-    if os.path.exists(path):
-        if path in sys.path:
-            sys.path.remove(path)
+    if os.path.exists(path) and path not in sys.path:
         sys.path.insert(0, path)
 
 try:
-    from backend.main import app as _app
+    from main import app as _app
     app = _app
 except Exception:
     try:
-        from main import app as _app
+        from backend.main import app as _app
         app = _app
     except Exception:
         err_msg = traceback.format_exc()
