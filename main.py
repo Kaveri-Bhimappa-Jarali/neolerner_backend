@@ -105,7 +105,10 @@ async def vercel_path_resolver_middleware(request: Request, call_next):
         clean_path = path_param.split("?")[0]
         if clean_path:
             request.scope["path"] = clean_path
+    elif request.scope.get("path") in ["/api/index.py", "/api/index", "/api/index.py/"]:
+        request.scope["path"] = request.url.path
     return await call_next(request)
+
 
 HEALTH_METHODS = ["GET", "HEAD", "OPTIONS"]
 
