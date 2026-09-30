@@ -98,22 +98,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.middleware("http")
-async def vercel_path_resolver_middleware(request: Request, call_next):
-    current_path = request.scope.get("path", "")
-    if current_path in ("/api/index.py", "/api/index", "/api/index.py/", "/api/index/"):
-        orig_uri = (
-            request.headers.get("x-forwarded-uri")
-            or request.headers.get("x-original-uri")
-            or request.headers.get("x-invoke-path")
-            or request.headers.get("x-rewrite-url")
-        )
-        if orig_uri:
-            clean_path = orig_uri.split("?")[0]
-            if clean_path and clean_path not in ("/api/index.py", "/api/index"):
-                request.scope["path"] = clean_path
-    return await call_next(request)
-
 HEALTH_METHODS = ["GET", "HEAD", "OPTIONS"]
 
 @app.exception_handler(Exception)
@@ -127,15 +111,21 @@ async def global_exception_handler(request: Request, exc: Exception):
         status_code=500
     )
 
-@app.api_route("/", methods=["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"])
+@app.api_route("/", methods=HEALTH_METHODS)
 @app.api_route("/health", methods=HEALTH_METHODS, include_in_schema=False)
 @app.api_route("/api/health", methods=HEALTH_METHODS, include_in_schema=False)
-def inspect_vercel_request(request: Request):
+def health_check():
+    """Health check endpoint for cloud hosting platforms (Render, Vercel, Railway)."""
+    return {"status": "ok", "service": "NeoLearner Backend API"}
+
+@app.api_route("/api/test-post", methods=["GET", "POST"])
+def test_post_endpoint(request: Request):
     return {
+        "status": "ok",
+        "message": "POST test endpoint working cleanly",
         "method": request.method,
         "path": request.url.path,
         "scope_path": request.scope.get("path"),
-        "scope_root_path": request.scope.get("root_path"),
         "headers": dict(request.headers)
     }
 
