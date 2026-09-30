@@ -74,7 +74,12 @@ def build_database_url_and_engine(raw_url):
 
     candidate_configs = []
 
-    # 1. If host is Supabase, build direct database hostname URL (db.uqczqaycmdltsjfpexlb.supabase.co:5432)
+    # 1. Direct raw URL
+    candidate_configs.append(
+        (raw_url, {"connect_timeout": 10})
+    )
+
+    # 2. If host is Supabase, build direct database hostname URL (db.uqczqaycmdltsjfpexlb.supabase.co:5432)
     if "uqczqaycmdltsjfpexlb" in rest or "supabase" in rest:
         user_pass_and_host = rest.split("@")
         if len(user_pass_and_host) >= 2:
@@ -87,10 +92,13 @@ def build_database_url_and_engine(raw_url):
                 ("postgresql+pg8000://" + direct_rest, {"ssl_context": ssl_ctx, "timeout": 10} if ssl_ctx else {"timeout": 10})
             )
             candidate_configs.append(
-                ("postgresql+psycopg://" + direct_rest, {"timeout": 10})
+                ("postgresql+psycopg://" + direct_rest, {"connect_timeout": 10})
+            )
+            candidate_configs.append(
+                ("postgresql://" + direct_rest, {"connect_timeout": 10})
             )
 
-    # 2. Add pooler / standard connection URL variations as fallbacks
+    # 3. Add pooler / standard connection URL variations as fallbacks
     pooler_rest = rest
     if "pooler.supabase.com" in pooler_rest and "uqczqaycmdltsjfpexlb" not in pooler_rest.split("@")[0]:
         if pooler_rest.startswith("postgres:"):
@@ -100,10 +108,10 @@ def build_database_url_and_engine(raw_url):
         ("postgresql+pg8000://" + pooler_rest, {"ssl_context": ssl_ctx, "timeout": 10} if ssl_ctx else {"timeout": 10})
     )
     candidate_configs.append(
-        ("postgresql+psycopg://" + pooler_rest, {"timeout": 10})
+        ("postgresql+psycopg://" + pooler_rest, {"connect_timeout": 10})
     )
     candidate_configs.append(
-        ("postgresql://" + pooler_rest, {"timeout": 10})
+        ("postgresql://" + pooler_rest, {"connect_timeout": 10})
     )
 
     for target_url, c_args in candidate_configs:
@@ -129,6 +137,7 @@ def build_database_url_and_engine(raw_url):
     norm_path = os.path.abspath(DB_PATH).replace("\\", "/")
     fallback_uri = f"sqlite:///{norm_path}" if os.path.exists(norm_path) else "sqlite:///:memory:"
     return create_engine(fallback_uri, connect_args={"check_same_thread": False, "timeout": 30}), fallback_uri
+
 
 engine, SQLALCHEMY_DATABASE_URL = build_database_url_and_engine(raw_env_url)
 
